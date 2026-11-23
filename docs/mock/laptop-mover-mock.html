@@ -369,7 +369,7 @@ document.title='Laptop mover mock: '+byId[id].getAttribute('data-title');window.
 document.addEventListener('click',function(e){var b=e.target.closest('[data-go]');if(b){e.preventDefault();show(b.getAttribute('data-go'));return;}
 var l=e.target.closest('[data-link]');if(l){e.preventDefault();document.getElementById('linksay').textContent='Mock: this link opens '+l.getAttribute('data-link')+' in the working tool.';return;}
 var s=e.target.closest('[data-say]');if(s){document.getElementById(s.getAttribute('data-say')).textContent='Mock: this button does nothing here.';}});
-document.addEventListener('change',function(e){if(e.target.matches('input[type=checkbox][data-size]'))sums();
+document.addEventListener('change',function(e){if(e.target.matches('input[type=checkbox][data-size]'))sums();});
 document.getElementById('pwsim').onclick=function(){document.getElementById('pwstat').textContent='Mock: the real 7-Zip window takes the password, this page never does.';};
 sums();
 /* feedback */
