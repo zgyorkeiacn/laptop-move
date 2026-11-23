@@ -52,9 +52,16 @@ for (const root of gitRoots) {
 for (const r of repos) {
   const known = folders.some((f) => f.path.toLowerCase() === r.path.toLowerCase());
   const inside = folders.some((f) => r.path.toLowerCase().startsWith(f.path.toLowerCase() + '\\') && repoByPath.has(f.path.toLowerCase()));
-  if (known || inside || /\\\.temp\\/.test(r.path)) continue;
+  if (known || inside || /\\\.temp\\/.test(r.path) || /\\AppData\\Local\\/i.test(r.path)) continue;
   const whole = !r.hasRemote;
-  folders.push({ group: 'nested repositories', id: 'f' + folders.length, path: r.path, sizeMB: 0, files: 0, nodeModulesMB: 0, cachesMB: 0, kind: whole ? 'local-only' : 'fetchable', mode: whole ? 'copy whole' : 'clone again', how: whole ? 'NO REMOTE: copy whole' : 'nested repository', packMB: whole ? 50 : 1, rec: true, origin: r.origin });
+  const covered = /\\\.gemini\\/i.test(r.path); // inside the .gemini folder row of the user folder
+  const bits = [];
+  if (whole) bits.push('NO REMOTE: copy whole'); else bits.push('nested repository');
+  if (r.unpushed) bits.push(`${r.unpushed} unpushed commit(s): bundle`);
+  if (r.dirty) bits.push(`${r.dirty} uncommitted file(s): copy`);
+  if (r.stashes) bits.push(`${r.stashes} stash(es): bundle refs/stash`);
+  if (covered) bits.push('inside the .gemini folder row, which carries it when that row is ticked');
+  folders.push({ group: 'nested repositories', id: 'f' + folders.length, path: r.path, sizeMB: 0, files: 0, nodeModulesMB: 0, cachesMB: 0, kind: whole ? 'local-only' : 'fetchable', mode: whole ? 'copy whole' : 'clone again' + (r.dirty || r.unpushed ? ' + bundle/dirty' : ''), how: bits.join('; '), packMB: whole && !covered ? 50 : 1, rec: !covered, origin: r.origin });
 }
 
 // user folder and AppData
@@ -81,6 +88,36 @@ if (ar) for (const c of ar.children) {
   if (/^AI /.test(c.name) || c.name === '@ae-tdg') continue;
   const fetch = appFetch.has(c.name);
   folders.push({ group: 'AppData\\Roaming', id: 'f' + folders.length, path: join(ar.root, c.name), sizeMB: mb(c.size), files: c.files, nodeModulesMB: mb(c.nmSize), cachesMB: mb(c.cacheSize), kind: fetch ? 'fetchable' : 'local-only', mode: fetch ? 'skip' : 'copy whole', how: fetch ? 'app data that the app rebuilds or syncs after sign-in' : 'an app keeps its own data here: copy with the app closed', packMB: fetch ? 0 : mb(c.size), rec: appRec.has(c.name) });
+}
+// AppData\Local (FORM-GAPS): top level folders; Programs, Microsoft and Google one level deeper (walk-local-*.json)
+{
+  const al = rj('walk-appdata-Local.json');
+  const localKids = { Programs: rj('walk-local-programs.json'), Microsoft: rj('walk-local-microsoft.json'), Google: rj('walk-local-google.json') };
+  // [kind, rec, how] per folder name (top level or Parent\Child); anything not listed and under 5 MB is left out
+  const BYHAND = ['browser profile or credential store: sign in again, never copy (listed by path in section 4)'];
+  const secretNames = new Set(['Microsoft\\Edge', 'Microsoft\\Credentials', 'Microsoft\\Vault', 'Microsoft\\Crypto', 'Microsoft\\TokenBroker', 'Microsoft\\OneAuth', 'Microsoft\\IdentityCache', 'Google\\Chrome', 'Google\\Chrome Dev', 'claude-cli-nodejs', '.IdentityService', 'GitHub CLI']);
+  const keepSmall = new Set(['Microsoft\\PowerToys']);
+  const own = { BrickBudgetArt: 'own app data and the portable Blender: copy whole', 'blok-ai': 'own app data (BLOK.AI): copy whole with the app closed; the installed program is rebuilt from the repository', 'Microsoft\\PowerToys': 'PowerToys settings (small): copy with PowerToys closed' };
+  const fetchHow = {
+    Temp: 'temporary files and scratch clones: never moved', JetBrains: 'IDE caches and indexes: rebuilt (settings travel through the IDE, config is under Roaming)', 'ms-playwright': 'Playwright browser builds: npx playwright install', Android: 'Android SDK and emulators: Android Studio downloads again', Packages: 'Microsoft Store app data: reinstall the apps', 'npm-cache': 'npm cache', pnpm: 'pnpm store', 'pnpm-cache': 'pnpm cache', Pub: 'Dart pub cache', 'dart-sdk': 'Dart SDK, comes with Flutter', flutter: 'Flutter SDK (a git clone): clone again from flutter.dev', '.dartServer': 'Dart analysis cache', pip: 'pip cache', NuGet: 'NuGet cache', uv: 'uv cache', Python: 'Python user data and caches', 'node-gyp': 'node-gyp headers', electron: 'Electron download cache', 'electron-builder': 'electron-builder cache (7-Zip downloads there must not be used)', 'ms-playwright-go': 'Playwright Go driver cache', JxBrowser: 'JxBrowser cache', Postman: 'Postman install and cache: sign in again (collections live in the account)', Adobe: 'Adobe caches', CrashDumps: 'crash dumps', Accenture: 'company tooling data: expect it from the company image', Citrix: 'company software', 'LogMeIn Rescue Applet': 'remote support applet', Comms: 'Windows mail and people cache', Redflags: 'Windows telemetry cache', 'cloud-code': 'Cloud Code download', 'Kollective ECDN11': 'company content delivery cache', Nexthink: 'company agent', NVIDIA: 'driver caches', CEF: 'browser engine cache', Cursor: 'Cursor local cache: reinstall Cursor', D3DSCache: 'graphics shader cache', 'WindowsControlWebView2': 'WebView2 cache', 'WindowsFormsWebView2': 'WebView2 cache', 'Microsoft\\WinGet': 'winget packages and sources', 'Microsoft\\Office': 'Office caches and sign-in state: sign in again', 'Microsoft\\OneDrive': 'OneDrive client state and sync cache: syncs again after sign-in', 'Microsoft\\Outlook': 'Outlook mail cache (OST): rebuilt from the mailbox', 'Microsoft\\Olk': 'new Outlook cache', 'Microsoft\\AugLoop': 'Office cache', 'Microsoft\\FontCache': 'font cache', 'Microsoft\\Windows': 'Windows shell caches', 'Microsoft\\TeamsMeetingAdd-in': 'Teams add-in: part of Teams', 'Microsoft\\TeamsMeetingAddinMsis': 'Teams add-in: part of Teams', 'Microsoft\\OneNote': 'OneNote cache: notebooks sync from the account', 'Microsoft\\MSIP': 'Purview cache: company managed', 'Programs\\Git': 'Git for Windows: reinstall (winget)', 'Programs\\cursor': 'Cursor program files: reinstall', 'Programs\\Microsoft VS Code': 'VS Code program files: reinstall (settings are in section 3)', 'Programs\\psi-bridge-secure-browser': 'company or client provided browser: install from IT', 'Programs\\BLOK.AI': 'installed copy of an own app: rebuild or reinstall from its repository', 'Programs\\Brick Tracker': 'installed copy of an own app: rebuild or reinstall from its repository', 'Programs\\smakmal': 'installed copy of an own app: rebuild or reinstall from its repository', 'Google\\Chrome for Testing': 'test browser: downloaded again', 'Google\\AndroidStudio2024.2': 'Android Studio caches and logs: rebuilt (settings under Roaming)',
+  };
+  const updater = /-updater$/;
+  const add = (parentName, c, base) => {
+    const key = parentName ? `${parentName}\\${c.name}` : c.name;
+    const secret = secretNames.has(key);
+    const sizeMB = mb(c.size);
+    if (!secret && sizeMB < 5 && !keepSmall.has(key) && !(key in own)) return;
+    const isOwn = key in own;
+    const isTemp = key === 'Temp' || key === 'CrashDumps';
+    const kind = secret ? 'secret-bearing' : isOwn ? 'local-only' : isTemp ? 'not-worth' : 'fetchable';
+    const how = secret ? BYHAND[0] : isOwn ? own[key] : fetchHow[key] ?? (updater.test(c.name) ? 'application updater download cache: recreated' : 'cache or program files an application rebuilds: not moved');
+    folders.push({ group: 'AppData\\Local', id: 'f' + folders.length, path: join(base, c.name), sizeMB, files: c.files ?? 0, nodeModulesMB: mb(c.nmSize), cachesMB: mb(c.cacheSize), kind, mode: secret ? 'by hand' : isOwn ? 'copy whole' : 'skip', how, packMB: isOwn ? sizeMB : 0, rec: isOwn });
+  };
+  if (al) for (const c of al.children) {
+    if (c.type !== 'dir') continue;
+    if (localKids[c.name]) { for (const k of localKids[c.name].children) if (k.type === 'dir') add(c.name, k, join(al.root, c.name)); continue; }
+    add('', c, al.root);
+  }
 }
 const synced = ['C:\\Users\\zoltan.gyorkei\\OneDrive - Accenture', ...clientOneDrive, 'C:\\Users\\zoltan.gyorkei\\OneDrive'];
 for (const p of synced) folders.push({ group: 'synced by OneDrive', id: 'f' + folders.length, path: p, sizeMB: 0, files: 0, nodeModulesMB: 0, cachesMB: 0, kind: 'synced', mode: 'sync', how: 'syncs by itself after sign-in: never copied, never written to', packMB: 0, rec: false, locked: true });
@@ -151,21 +188,36 @@ const questions = [
   { id: 'q7', text: 'How long stays the old laptop usable after the move?', options: [['At least two weeks', true], ['Handed back at once', false]], why: 'Secrets and anything forgotten are moved by hand from it.' },
 ];
 
-const inventory = { generatedAt: new Date().toISOString(), machine: 'this laptop', folders, apps, settings, questions, secretFiles: secretPaths };
+// New rows (FORM-GAPS): rows that the form the user already filled in (data/inventory-before.json) did not have
+const before = rj('inventory-before.json');
+if (before) {
+  const basePaths = new Set(before.folders.map((f) => f.path.toLowerCase()));
+  for (const f of folders) f.isNew = !basePaths.has(f.path.toLowerCase());
+}
+const saved = rj('saved-selection.json');
+const secretFiles = [...new Set([...secretPaths, ...rj('secret-paths-local.json', [])])];
+const inventory = { generatedAt: new Date().toISOString(), machine: 'this laptop', folders, apps, settings, questions, secretFiles, saved };
 writeFileSync(join(dataDir, 'inventory.json'), JSON.stringify(inventory, null, 1));
 
 // ---------- the form ----------
-const css = 'body{font:14px/1.45 Segoe UI,Arial,sans-serif;max-width:1150px;margin:20px auto;padding:0 14px;background:#f6f7f9;color:#1d2330}h1{font-size:22px}h2{margin-top:26px;border-bottom:2px solid #d5d9e0;padding-bottom:3px}h3{margin:14px 0 4px;font-size:15px}table{border-collapse:collapse;width:100%;background:#fff;font-size:12.5px}td,th{border:1px solid #d5d9e0;padding:3px 6px;text-align:left;vertical-align:top}th{background:#e8ebf1}textarea{width:100%;box-sizing:border-box;min-height:44px;margin:4px 0 8px;font:inherit}.k-local-only{background:#e3f6e5}.k-fetchable{background:#eef3fb}.k-not-worth{background:#f1f1f1;color:#555}.k-secret-bearing,.k-synced{background:#fff4d6}.bar{position:sticky;top:0;background:#1d2330;color:#fff;padding:8px 12px;z-index:5;display:flex;gap:12px;align-items:center}.bar button{padding:5px 12px;cursor:pointer}.rec{color:#17692a;font-weight:700}.small{color:#555;font-size:12px}details{background:#fff;border:1px solid #d5d9e0;padding:6px 10px;margin:8px 0}.q{background:#fff;border-left:5px solid #2b6cb0;padding:6px 12px;margin:10px 0}';
+const css = 'body{font:14px/1.45 Segoe UI,Arial,sans-serif;max-width:1150px;margin:20px auto;padding:0 14px;background:#f6f7f9;color:#1d2330}h1{font-size:22px}h2{margin-top:26px;border-bottom:2px solid #d5d9e0;padding-bottom:3px}h3{margin:14px 0 4px;font-size:15px}table{border-collapse:collapse;width:100%;background:#fff;font-size:12.5px}td,th{border:1px solid #d5d9e0;padding:3px 6px;text-align:left;vertical-align:top}th{background:#e8ebf1}textarea{width:100%;box-sizing:border-box;min-height:44px;margin:4px 0 8px;font:inherit}.k-local-only{background:#e3f6e5}.k-fetchable{background:#eef3fb}.k-not-worth{background:#f1f1f1;color:#555}.k-secret-bearing,.k-synced{background:#fff4d6}.bar{position:sticky;top:0;background:#1d2330;color:#fff;padding:8px 12px;z-index:5;display:flex;gap:12px;align-items:center}.bar button{padding:5px 12px;cursor:pointer}.rec{color:#17692a;font-weight:700}.small{color:#555;font-size:12px}details{background:#fff;border:1px solid #d5d9e0;padding:6px 10px;margin:8px 0}.q{background:#fff;border-left:5px solid #2b6cb0;padding:6px 12px;margin:10px 0}.newb{background:#c2410c;color:#fff;border-radius:3px;padding:0 5px;font-size:11px;font-weight:700}.isnew{outline:2px solid #c2410c;outline-offset:-2px}body.onlynew tr:not(.isnew):not(.hd){display:none}body.onlynew details.nonew{display:none}';
 const js = `
 const INV=__INV__;
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const el=id=>document.getElementById(id);
-function rows(list,cols,cls){return list.map(x=>'<tr class="'+(cls?cls(x):'')+'"><td>'+(x.locked?'':'<input type="checkbox" data-id="'+x.id+'"'+(x.rec?' checked':'')+'>')+'</td>'+cols(x).map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')}
-function foldersHtml(){const groups={};INV.folders.forEach(f=>(groups[f.group]=groups[f.group]||[]).push(f));let h='';for(const g of Object.keys(groups)){h+='<details'+(g.startsWith('C:')&&g!=='C:\\\\git_accenture'?'':' open')+'><summary><b>'+esc(g)+'</b> ('+groups[g].length+')</summary><table><tr><th></th><th>Path</th><th>Size MB</th><th>Files</th><th>Kind</th><th>Move how</th><th>Node modules / caches MB (not moved)</th></tr>'+rows(groups[g],f=>[esc(f.path),f.sizeMB,f.files,esc(f.kind),esc(f.mode)+'<br><span class="small">'+esc(f.how)+'</span>',f.nodeModulesMB+' / '+f.cachesMB],f=>'k-'+f.kind)+'</table></details>'}return h}
+const SAVED=INV.saved;
+const sFold=new Set((SAVED?.folders||[]).map(f=>f.path.toLowerCase()));
+const sApp=new Set((SAVED?.applications||[]).map(a=>a.name+'|'+a.wingetId));
+const sSet=new Set((SAVED?.settings||[]).map(s=>s.app));
+function chk(x){if(!SAVED||x.isNew)return !!x.rec;if(x.id[0]==='f')return sFold.has(x.path.toLowerCase());if(x.id[0]==='a')return sApp.has(x.name+'|'+x.wingetId);return sSet.has(x.app)}
+const NEWB=' <span class="newb">New</span>';
+function rows(list,cols,cls){return list.map(x=>'<tr class="'+(cls?cls(x):'')+(x.isNew?' isnew':'')+'"><td>'+(x.locked?'':'<input type="checkbox" data-id="'+x.id+'"'+(chk(x)?' checked':'')+'>')+'</td>'+cols(x).map((c,i)=>'<td>'+c+(i===0&&x.isNew?NEWB:'')+'</td>').join('')+'</tr>').join('')}
+function foldersHtml(){const groups={};INV.folders.forEach(f=>(groups[f.group]=groups[f.group]||[]).push(f));let h='';for(const g of Object.keys(groups)){const nn=groups[g].filter(f=>f.isNew).length;h+='<details class="'+(nn?'':'nonew')+'"'+((g.startsWith('C:')&&g!=='C:\\\\git_accenture'&&!nn)?'':' open')+'><summary><b>'+esc(g)+'</b> ('+groups[g].length+(nn?', <span class="newb">'+nn+' new</span>':'')+')</summary><table><tr class="hd"><th></th><th>Path</th><th>Size MB</th><th>Files</th><th>Kind</th><th>Move how</th><th>Node modules / caches MB (not moved)</th></tr>'+rows(groups[g],f=>[esc(f.path),f.sizeMB,f.files,esc(f.kind),esc(f.mode)+'<br><span class="small">'+esc(f.how)+'</span>',f.nodeModulesMB+' / '+f.cachesMB],f=>'k-'+f.kind)+'</table></details>'}return h}
 function appsHtml(){return '<table><tr><th></th><th>Name</th><th>Version</th><th>Source</th><th>winget id or page</th><th>Note</th></tr>'+rows(INV.apps,a=>[esc(a.name),esc(a.version),esc(a.source),esc(a.wingetId||a.page),esc(a.note)],a=>a.source==='company'?'k-synced':'')+'</table>'}
 function settingsHtml(){return '<table><tr><th></th><th>App</th><th>What</th><th>How</th></tr>'+rows(INV.settings,s=>[esc(s.app),esc(s.what),esc(s.how)])+'</table>'}
 function secretsHtml(){const g={};INV.secretFiles.forEach(p=>{const n=p.split('\\\\').pop();const k=/^\\.env/.test(n)?'.env files':/\\.npmrc$/.test(n)?'.npmrc':/credentials/i.test(n)||/\\.credentials/.test(n)?'credentials files':/settings\\.xml$/.test(n)?'Maven settings.xml':/accounts|pat-status/.test(n)?'git-manager account files':/\\.(pem|pfx|p12|key|ppk)$/i.test(n)?'certificates and keys':n.startsWith('client_secret')?'client_secret files':'other ('+n+')';(g[k]=g[k]||[]).push(p)});return Object.keys(g).sort().map(k=>'<details><summary><b>'+esc(k)+'</b>: '+g[k].length+' path(s), listed by path only</summary><div class="small">'+g[k].map(esc).join('<br>')+'</div></details>').join('')}
-function qHtml(){return INV.questions.map((q,i)=>'<div class="q"><b>'+(i+1)+'. '+esc(q.text)+'</b><br>'+q.options.map((o,j)=>'<label><input type="radio" name="'+q.id+'" value="'+j+'"'+(o[1]?' checked':'')+'> '+esc(o[0])+(o[1]?' <span class="rec">(Recommended)</span>':'')+'</label><br>').join('')+'<span class="small">'+esc(q.why)+'</span><textarea data-c="'+q.id+'" placeholder="Comment (optional)"></textarea></div>').join('')}
+function qSel(q,j){const a=SAVED?.questions?.find(x=>x.question===q.text);if(a&&a.answer!=null&&q.options.some(o=>o[0]===a.answer))return q.options[j][0]===a.answer;return !!q.options[j][1]}
+function qHtml(){return INV.questions.map((q,i)=>'<div class="q"><b>'+(i+1)+'. '+esc(q.text)+'</b><br>'+q.options.map((o,j)=>'<label><input type="radio" name="'+q.id+'" value="'+j+'"'+(qSel(q,j)?' checked':'')+'> '+esc(o[0])+(o[1]?' <span class="rec">(Recommended)</span>':'')+'</label><br>').join('')+'<span class="small">'+esc(q.why)+'</span><textarea data-c="'+q.id+'" placeholder="Comment (optional)"></textarea></div>').join('')}
 function section(id,title,html){return '<h2>'+title+'</h2>'+html+'<textarea data-c="'+id+'" placeholder="Comment on this section (optional)"></textarea>'}
 document.body.insertAdjacentHTML('beforeend',
  section('folders','1. Folders and repositories',foldersHtml())+
@@ -174,15 +226,21 @@ document.body.insertAdjacentHTML('beforeend',
  '<h2>4. Secret-bearing files: move by hand</h2><p>Never ticked, never packed. Sign in again, make a new token, or copy them yourself.</p>'+secretsHtml()+'<textarea data-c="secrets" placeholder="Comment on the secret-bearing files (optional)"></textarea>'+
  '<h2>5. Questions</h2>'+qHtml()+
  '<h2>Additional comments</h2><textarea data-c="additional" placeholder="Anything else (optional)"></textarea>');
+const LABELS={folders:'Section 1: Folders and repositories',apps:'Section 2: Applications',settings:'Section 3: Settings that can travel',secrets:'Section 4: Secret-bearing files',additional:'Additional comments'};
+INV.questions.forEach((q,i)=>LABELS[q.id]='Question '+(i+1)+': '+q.text);
+// pre-fill the comments from the saved selection: the saved keys are the textarea keys (folders, apps, q1, additional ...)
+if(SAVED?.comments){for(const [k,v] of Object.entries(SAVED.comments)){const t=document.querySelector('textarea[data-c="'+k+'"]');if(t)t.value=v}}
 function total(){let t=0;document.querySelectorAll('input[data-id^=f]:checked').forEach(c=>{const f=INV.folders.find(x=>x.id===c.dataset.id);t+=f?.packMB||0});el('tot').textContent=(t/1024).toFixed(1)+' GB to pack (recommended way)'}
 function collect(){const out={savedAt:new Date().toISOString(),folders:[],applications:[],settings:[],questions:[],comments:{}};
  document.querySelectorAll('input[data-id]:checked').forEach(c=>{const id=c.dataset.id;const f=INV.folders.find(x=>x.id===id);if(f)return out.folders.push({path:f.path,mode:f.mode});const a=INV.apps.find(x=>x.id===id);if(a)return out.applications.push({name:a.name,wingetId:a.wingetId,source:a.source});const s=INV.settings.find(x=>x.id===id);if(s)out.settings.push({app:s.app,how:s.how})});
  INV.questions.forEach((q,i)=>{const r=document.querySelector('input[name='+q.id+']:checked');out.questions.push({n:i+1,question:q.text,answer:r?q.options[+r.value][0]:null})});
- document.querySelectorAll('textarea[data-c]').forEach(t=>{if(t.value.trim())out.comments[t.dataset.c]=t.value.trim()});return out}
+ out.commentLabels={};document.querySelectorAll('textarea[data-c]').forEach(t=>{if(t.value.trim()){out.comments[t.dataset.c]=t.value.trim();out.commentLabels[t.dataset.c]=LABELS[t.dataset.c]||t.dataset.c}});return out}
+el('onlynew').onchange=()=>document.body.classList.toggle('onlynew',el('onlynew').checked);
+el('newcount').textContent=INV.folders.filter(f=>f.isNew).length+' new folder or repository rows';
 el('save').onclick=()=>{const b=new Blob([JSON.stringify(collect(),null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='laptop-move-selection.json';a.click()};
 el('copy').onclick=async()=>{const t=JSON.stringify(collect(),null,1);try{await navigator.clipboard.writeText(t);el('msg').textContent='copied'}catch{const x=document.createElement('textarea');document.body.appendChild(x);x.value=t;x.select();document.execCommand('copy');x.remove();el('msg').textContent='copied'}};
 document.addEventListener('change',total);total();`;
-const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Laptop move: selection</title><style>${css}</style></head><body><div class="bar"><b>Laptop move selection</b><span id="tot"></span><button id="save">Save selection</button><button id="copy">Copy answers</button><span id="msg"></span></div><h1>Laptop move: what to take</h1><p>Ticks are the recommendation. Untick what you do not want. Every section and question has a comment box. Saving downloads laptop-move-selection.json; Copy answers copies the same text. Nothing leaves this page.</p><script>${js.replace('__INV__', JSON.stringify(inventory).replace(/</g, '\\u003c'))}</script></body></html>`;
+const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Laptop move: selection</title><style>${css}</style></head><body><div class="bar"><b>Laptop move selection</b><span id="tot"></span><button id="save">Save selection</button><button id="copy">Copy answers</button><label><input type="checkbox" id="onlynew"> Show only the new rows</label><span id="newcount"></span><span id="msg"></span></div><h1>Laptop move: what to take</h1><p><b>Your earlier selection is already filled in.</b> Only the rows marked <span class="newb">New</span> need a look (tick the box above to show only those); their ticks are the recommendation. Untick what you do not want. Every section and question has a comment box. Saving downloads laptop-move-selection.json; Copy answers copies the same text. Nothing leaves this page.</p><script>${js.replace('__INV__', JSON.stringify(inventory).replace(/</g, '\\u003c'))}</script></body></html>`;
 writeFileSync(join(dataDir, 'select.html'), html);
 const sum = (k) => folders.filter((f) => f.rec).reduce((a, f) => a + (f[k] ?? 0), 0);
 console.log('folders', folders.length, 'apps', apps.length, 'recommended pack GB', (sum('packMB') / 1024).toFixed(1));
