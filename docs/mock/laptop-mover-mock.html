@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Laptop mover: clickable mock (not the working tool)</title>
+<style>
+:root{--p:#A100FF;--pd:#7500C0;--pdd:#460073;--pl:#E6DCFF;--pll:#F5EFFF;--k:#000;--g1:#1A1A1A;--g2:#4D4D4D;--g3:#6B6B6B;--g4:#D0D0D0;--g5:#F2F2F2;--ok:#0B6B2E;--warn:#8A4B00;--bad:#B00020}
+*{box-sizing:border-box}
+body{margin:0;font-family:Graphik,Arial,Helvetica,sans-serif;color:var(--g1);background:#fff;line-height:1.5;font-size:15px}
+h1,h2,h3,h4{margin:0 0 .5em;line-height:1.2}
+h1{font-size:26px}h2{font-size:21px}h3{font-size:17px}h4{font-size:15px}
+a{color:var(--pd)}
+:focus-visible{outline:3px solid var(--k);outline-offset:2px}
+.btn{display:inline-block;background:var(--p);color:#fff;border:2px solid var(--p);padding:8px 16px;font:inherit;font-weight:700;cursor:pointer;border-radius:0}
+.btn:hover{background:var(--pd);border-color:var(--pd)}
+.btn.ghost{background:#fff;color:var(--pdd);border-color:var(--pdd)}
+.btn.ghost:hover{background:var(--pl)}
+.btn.sm{padding:4px 10px;font-size:13px}
+.card{border:1px solid var(--g4);background:#fff;padding:16px;margin:0 0 16px}
+.card.purple{background:var(--pll);border-color:var(--pl)}
+.tag{display:inline-block;padding:1px 8px;font-size:12px;font-weight:700;border:1px solid currentColor;background:#fff}
+.tag.ok{color:var(--ok)}.tag.warn{color:var(--warn)}.tag.bad{color:var(--bad)}.tag.pp{color:var(--pdd)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--g4);vertical-align:top}
+th{background:var(--g5);font-size:13px}
+.num{text-align:right;white-space:nowrap}
+.bar{height:16px;background:var(--g5);border:1px solid var(--g4)}.bar>i{display:block;height:100%;width:0;background:var(--p)}
+code,.mono{font-family:Consolas,Menlo,monospace;font-size:13px;background:var(--g5);padding:1px 5px}
+pre{background:var(--k);color:#fff;padding:12px;overflow:auto;font-size:13px;margin:0 0 12px}
+.sample{font-size:12px;color:var(--g2);border-top:1px dashed var(--g4);margin-top:8px;padding-top:4px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.screen{border:2px solid var(--k);background:#fff;margin:0 0 16px}
+.screen>.sbar{background:var(--k);color:#fff;font-size:12px;padding:4px 10px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.screen>.sbody{padding:16px}
+.hide{display:none!important}
+details{border:1px solid var(--g4);padding:8px 12px;margin:0 0 8px}summary{cursor:pointer;font-weight:700}
+.skip{position:absolute;left:-999px}.skip:focus{left:8px;top:8px;background:#fff;padding:4px;z-index:9}
+.mockbadge{display:inline-block;background:#FFE14D;color:#000;font-size:12px;font-weight:700;padding:2px 8px;border:1px solid #000}
+.por{display:grid;grid-template-columns:260px 1fr;max-width:1200px;margin:0 auto}
+.toc{border-right:1px solid var(--g4);padding:16px}
+.toc h2{font-size:13px;color:var(--g2);text-transform:uppercase;letter-spacing:.06em;margin:12px 0 4px}
+.toc button{display:block;width:100%;text-align:left;background:#fff;border:0;border-bottom:1px solid var(--g4);padding:8px 6px;font:inherit;font-size:14px;cursor:pointer;color:var(--pdd)}
+.toc button.on{font-weight:700;background:var(--pll);border-left:4px solid var(--p)}
+.art{padding:24px;max-width:880px}
+.inline{border-left:6px solid var(--p);background:var(--pll);padding:12px 16px;margin:0 0 16px}
+.hero{background:linear-gradient(135deg,#460073,#000);color:#fff;padding:24px}.hero h1{margin:0 0 6px}.hero p{margin:0;color:#E6DCFF}
+.nav{display:flex;justify-content:space-between;gap:8px;margin-top:16px}
+.pick{display:block;margin:4px 0}
+.choice{border:2px solid var(--g4);padding:10px 14px;margin:0 0 10px;display:block;cursor:pointer}
+.choice:has(input:checked){border-color:var(--p);background:var(--pll)}
+.dialog{border:2px solid var(--k);max-width:420px;background:#fff;box-shadow:6px 6px 0 var(--pl)}
+.dialog .t{background:var(--pdd);color:#fff;padding:4px 10px;font-size:13px}
+.dialog .b{padding:14px}
+.fb textarea,.fb input[type=text]{width:100%;min-height:54px;font:inherit;padding:6px;border:1px solid var(--g2);margin:4px 0 10px}
+.fb fieldset{border:1px solid var(--g4);margin:0 0 16px;padding:10px 14px}
+.fb legend{font-weight:700;padding:0 6px}
+.rec{color:var(--pdd);font-weight:700}
+.cl{display:block;font-size:13px;color:var(--g2);margin-top:6px}
+#fbstatus{margin-left:10px;font-weight:700;color:var(--pdd)}
+@media(max-width:800px){.por{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}}
+@media print{.toc,header,.nav,.hero{display:none!important}.por{display:block}.hide{display:block!important}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header style="background:#000;color:#fff;padding:10px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+<strong style="font-size:18px">Laptop mover</strong>
+<span style="color:#BE82FF">Guide-first portal</span>
+<span class="mockbadge" id="badge">Mock, not the working tool</span>
+<span style="margin-left:auto;font-size:13px;color:#E0E0E0">Local page on 127.0.0.1 in the real tool</span>
+<button class="btn sm" type="button" data-go="feedback" id="fbtop">Feedback</button>
+</header>
+<div class="hero"><h1>Moving to a new laptop, the guided way</h1><p>Tutorials, instructions, FAQ and security notes first. The tool's screens are the pages. Everything here is sample data and nothing is read or written.</p></div>
+<div class="por">
+<nav class="toc" aria-label="Screens" id="toc"></nav>
+<main id="main" class="art">
+
+<article data-screen="start" data-title="Start" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Start</span><span class="mockbadge">Mock, not the working tool</span></div><div class="sbody">
+<h2>Move to a new laptop</h2>
+<p>Four parts, in order. Each has a guide and a button that runs the step in the tool. It takes about an hour of your time, most of it waiting.</p>
+<div class="grid2">
+<div class="card purple"><h3>1 Scan and choose</h3><p>On the old laptop. Nothing is changed.</p><button class="btn sm" type="button" data-go="scan">Open</button></div>
+<div class="card purple"><h3>2 Dry run and pack</h3><p>See size and time, then pack with a password.</p><button class="btn sm" type="button" data-go="dryrun">Open</button></div>
+<div class="card purple"><h3>3 Upload and download</h3><p>You put the bundle on Accenture OneDrive or Google Drive.</p><button class="btn sm" type="button" data-go="upload">Open</button></div>
+<div class="card purple"><h3>4 Restore and check</h3><p>On the new laptop, one command, then a report.</p><button class="btn sm" type="button" data-go="restore">Open</button></div>
+</div>
+<p>New here? <button class="btn ghost sm" type="button" data-go="tutorial">Read the 5-step tutorial</button> <button class="btn ghost sm" type="button" data-go="instructions">Detailed instructions</button></p>
+<div class="sample">Sample data only. No real names, paths or secrets.</div>
+<div class="nav"><span></span><button class="btn" type="button" data-go="scan">Start: scan this laptop</button></div>
+</div></section></article>
+
+<article data-screen="scan" data-title="Scan" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Scan</span><span class="mockbadge">Mock, not the working tool</span></div><div class="sbody">
+<h3>Scanning this laptop</h3>
+<p>The mover lists folders, applications, settings and repositories. It only reads. It never pushes, fetches or locks a repository.</p>
+<div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Scan" data-sim="3000"><i></i></div>
+<p class="mono" data-simtext="Scanning folders, applications, repositories and settings|Scan finished: 6 folders, 6 applications, 5 repositories, 6 settings found">waiting</p>
+<div class="sample">Simulated with a timer. Sample data only.</div>
+<div class="nav"><button class="btn ghost" type="button" data-go="start">Back</button><button class="btn" type="button" data-go="apps">Next: choose what moves</button></div>
+</div></section></article>
+
+<article data-screen="apps" data-title="Choose: applications" class="hide">
+<p class="inline">Guide: every application shows how it will be installed on the new laptop. <button class="btn sm" type="button" data-go="instructions">Open the detailed instructions</button></p>
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Choose: applications</span><span class="mockbadge">Mock, not the working tool</span></div><div class="sbody">
+<h3>Choose what moves: applications</h3>
+<table><tr><th>Move</th><th>Application</th><th>Install route</th><th>What happens</th></tr>
+<tr><td><input type="checkbox" checked data-size="0.05" aria-label="Visual Studio Code"></td><td>Visual Studio Code</td><td><span class="tag pp">winget</span></td><td>Installed by winget from the recorded package id</td></tr>
+<tr><td><input type="checkbox" checked data-size="0.05" aria-label="Git"></td><td>Git</td><td><span class="tag pp">winget</span></td><td>Installed by winget</td></tr>
+<tr><td><input type="checkbox" checked data-size="0.05" aria-label="Node.js LTS"></td><td>Node.js LTS</td><td><span class="tag pp">winget</span></td><td>Installed by winget</td></tr>
+<tr><td><input type="checkbox" checked data-size="0.05" aria-label="7-Zip"></td><td>7-Zip</td><td><span class="tag pp">winget</span></td><td>Installed by winget</td></tr>
+<tr><td><input type="checkbox" checked data-size="0.05" aria-label="SampleDraw Pro"></td><td>SampleDraw Pro</td><td><span class="tag pp">vendor download</span></td><td>Downloaded from the vendor, run only if the signature is valid and matches the recorded publisher</td></tr>
+<tr><td><input type="checkbox" data-size="0" aria-label="Corporate VPN client"></td><td>Corporate VPN client</td><td><span class="tag pp">Software Center</span></td><td>Listed only: you install it from Software Center</td></tr></table>
+<p><strong class="selsum">Selected: 0 items</strong></p>
+<div class="sample">Sample data only. No real names, paths or secrets.</div>
+<div class="nav"><button class="btn ghost" type="button" data-go="scan">Back</button><button class="btn" type="button" data-go="folders">Next: folders</button></div>
+</div></section></article>
+
+<article data-screen="folders" data-title="Choose: folders" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Choose: folders</span><span class="mockbadge">Mock, not the working tool</span></div><div class="sbody">
+<h3>Choose what moves: folders</h3>
+<label class="pick"><input type="checkbox" checked data-size="4.2" aria-label="C:\work\projects 4.2 GB"> <code>C:\work\projects</code> (4.2 GB)</label>
+<label class="pick"><input type="checkbox" checked data-size="0.12" aria-label="C:\work\notes 120 MB"> <code>C:\work\notes</code> (120 MB)</label>
+<label class="pick"><input type="checkbox" checked data-size="0.04" aria-label="C:\tools\scripts 36 MB"> <code>C:\tools\scripts</code> (36 MB)</label>
+<label class="pick"><input type="checkbox" checked data-size="1.9" aria-label="Documents 1.9 GB"> <code>C:\Users\sample.user\Documents</code> (1.9 GB)</label>
+<label class="pick"><input type="checkbox" data-size="0.31" aria-label="AppData Local SampleApp 310 MB"> <code>C:\Users\sample.user\AppData\Local\SampleApp</code> (310 MB)</label>
+<label class="pick"><input type="checkbox" data-size="8.7" aria-label="C:\data\scratch 8.7 GB"> <code>C:\data\scratch</code> (8.7 GB)</label>
+<p class="card purple">Folders that hold secrets are never copied: they are on the by-hand list.</p>
+<p><strong class="selsum">Selected: 0 items</strong></p>
+<div class="sample">Sample data only. No real names, paths or secrets.</div>
+<div class="nav"><button class="btn ghost" type="button" data-go="apps">Back</button><button class="btn" type="button" data-go="repos">Next: repositories</button></div>
+</div></section></article>
+
+<article data-screen="repos" data-title="Choose: repositories" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Choose: repositories</span><span class="mockbadge">Mock, not the working tool</span></div><div class="sbody">
+<h3>Choose what moves: repositories</h3>
+<table><tr><th>Move</th><th>Repository</th><th>State</th><th>What happens</th></tr>
+<tr><td><input type="checkbox" checked data-size="0.2" aria-label="sample-api"></td><td>sample-api</td><td><span class="tag ok">has remote</span></td><td>Cloned again on the new laptop, unpushed commits and changed files copied</td></tr>
+<tr><td><input type="checkbox" checked data-size="0.2" aria-label="sample-ui"></td><td>sample-ui</td><td><span class="tag ok">has remote</span></td><td>Cloned again on the new laptop</td></tr>
+<tr><td><input type="checkbox" checked data-size="0.1" aria-label="sample-notes"></td><td>sample-notes</td><td><span class="tag ok">no remote</span></td><td>Packed whole, in the data part</td></tr>
+<tr><td><input type="checkbox" data-size="0" aria-label="client-service-a"></td><td>client-service-a</td><td><span class="tag warn">client, has remote</span></td><td>Stays out. Push it, then clone it again yourself</td></tr>
+<tr><td><input type="checkbox" data-size="0.4" aria-label="client-tools-b"></td><td>client-tools-b</td><td><span class="tag warn">client, no remote</span></td><td>Goes in the separate client part, for Accenture OneDrive only</td></tr></table>
+<p><strong class="selsum">Selected: 0 items</strong></p>
+<div class="sample">Sample data only. No client names: the word client stands for any client.</div>
+<div class="nav"><button class="btn ghost" type="button" data-go="folders">Back</button><button class="btn" type="button" data-go="settings">Next: settings</button></div>
+</div></section></article>
+
+<article data-screen="settings" data-title="Choose: settings" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Choose: settings</span><span class="mockbadge">Mock, not the working tool</span></div><div class="sbody">
+<h3>Choose what moves: settings</h3>
+<label class="pick"><input type="checkbox" checked data-size="0" aria-label="Git config and aliases"> Git config and aliases</label>
+<label class="pick"><input type="checkbox" checked data-size="0" aria-label="VS Code settings and extension list"> VS Code settings and extension list</label>
+<label class="pick"><input type="checkbox" checked data-size="0" aria-label="Terminal profile"> Terminal profile</label>
+<label class="pick"><input type="checkbox" checked data-size="0" aria-label="Environment variable names"> Environment variables (names only, you review the values)</label>
+<label class="pick"><input type="checkbox" data-size="0" aria-label="Wi-Fi profiles"> Wi-Fi profiles</label>
+<label class="pick"><input type="checkbox" data-size="0" aria-label="Printer list"> Printer list</label>
+<p><strong class="selsum">Selected: 0 items</strong></p>
+<div class="sample">Sample data only. No real names, paths or secrets.</div>
+<div class="nav"><button class="btn ghost" type="button" data-go="repos">Back</button><button class="btn" type="button" data-go="byhand">Next: the by-hand list</button></div>
+</div></section></article>
+
+<article data-screen="byhand" data-title="By-hand list" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>By hand</span><span class="mockbadge">Mock, not the working tool</span></div><div class="sbody">
+<h3>Move by hand</h3>
+<p>These files are never copied. They hold secrets. Move each one the safe way for what it is, then tick it.</p>
+<table><tr><th>Item</th><th>Why</th><th>Done</th></tr>
+<tr><td>.env and .env.* files</td><td>secrets in plain text</td><td><input type="checkbox" aria-label="Done: .env files"></td></tr>
+<tr><td>.npmrc with tokens</td><td>registry tokens</td><td><input type="checkbox" aria-label="Done: .npmrc"></td></tr>
+<tr><td>.ssh folder</td><td>private keys</td><td><input type="checkbox" aria-label="Done: .ssh folder"></td></tr>
+<tr><td>Cloud CLI credentials</td><td>access keys</td><td><input type="checkbox" aria-label="Done: Cloud CLI credentials"></td></tr>
+<tr><td>Browser saved logins</td><td>passwords and cookies</td><td><input type="checkbox" aria-label="Done: Browser saved logins"></td></tr>
+<tr><td>Password manager vault</td><td>export it from its own app</td><td><input type="checkbox" aria-label="Done: Password manager vault"></td></tr></table>
+<div class="sample">Sample data only. No real names, paths or secrets.</div>
+<div class="nav"><button class="btn ghost" type="button" data-go="settings">Back</button><button class="btn" type="button" data-go="dryrun">Next: dry run</button></div>
+</div></section></article>
+
+<article data-screen="dryrun" data-title="Dry run" class="hide">
+<p class="inline">Guide: read the dry run, then pack. Nothing is written yet.</p>
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Dry run</span><span class="mockbadge">Mock, not the working tool</span></div><div class="sbody">
+<h3>Dry run (nothing is written yet)</h3>
+<table><tr><th>What</th><th class="num">Size</th><th>Where it goes</th></tr>
+<tr><td>Data part 1 to 3</td><td class="num">9.6 GB</td><td>encrypted 7-Zip volumes, 4 GB each</td></tr>
+<tr><td>Client part</td><td class="num">0.4 GB</td><td>client-*.7z.*, Accenture OneDrive only</td></tr>
+<tr><td>Kit zip</td><td class="num">42 MB</td><td>plain zip: mover, manifest, README, signed node.exe</td></tr></table>
+<p>Time: about 18 min to pack, about 25 min to restore. Upload time depends on the network.</p>
+<h4>Applications, by route</h4>
+<table><tr><th>App</th><th>Route</th></tr><tr><td>Visual Studio Code, Git, Node.js LTS, 7-Zip</td><td>winget</td></tr><tr><td>SampleDraw Pro</td><td>vendor download (signature checked)</td></tr><tr><td>Corporate VPN client</td><td>Software Center (listed only)</td></tr></table>
+<div class="card purple" style="margin-top:12px"><strong>Push first:</strong> client-service-a has 4 commits that are not pushed. Push them, then run the dry run again.</div>
+<div class="sample">Sample data only. No real names, paths or secrets.</div>
+<div class="nav"><button class="btn ghost" type="button" data-go="byhand">Back</button><button class="btn" type="button" data-go="password">Next: password</button></div>
+</div></section></article>
+
+<article data-screen="password" data-title="Password step" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Password</span><span class="mockbadge">Mock, not the working tool</span></div><div class="sbody">
+<h3>The password step</h3>
+<p>The mover never asks for, sees or stores your password. 7-Zip asks for it in its own window, once for the data parts and once for the client part. Choose a long passphrase and keep it somewhere safe: without it the bundle cannot be opened.</p>
+<div class="dialog" role="img" aria-label="Picture of the 7-Zip password window"><div class="t">7-Zip: Enter password (picture)</div><div class="b"><p style="margin:0 0 8px">Enter password:</p><div style="border:1px solid #000;padding:4px 8px;font-family:Consolas,monospace;background:#F2F2F2">************</div><p style="margin:8px 0 0;font-size:13px">Encrypt file names: ticked. Method: AES-256.</p></div></div>
+<p style="margin-top:12px"><button class="btn ghost sm" type="button" id="pwsim">Simulate: password typed in the 7-Zip window</button> <span id="pwstat" role="status" class="rec"></span></p>
+<div class="sample">A picture only: this mock has no password field and keeps nothing.</div>
+<div class="nav"><button class="btn ghost" type="button" data-go="dryrun">Back</button><button class="btn" type="button" data-go="packing">Next: pack</button></div>
+</div></section></article>
+
+<article data-screen="packing" data-title="Packing progress" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Packing</span><span class="mockbadge">Mock, not the working tool</span></div><div class="sbody">
+<h3>Packing</h3>
+<div style="margin:8px 0"><div style="display:flex;justify-content:space-between"><span>Part 1 of 3</span><span class="pc">0%</span></div><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Part 1 of 3" data-sim="2500"><i></i></div></div>
+<div style="margin:8px 0"><div style="display:flex;justify-content:space-between"><span>Part 2 of 3</span><span class="pc">0%</span></div><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Part 2 of 3" data-sim="3500"><i></i></div></div>
+<div style="margin:8px 0"><div style="display:flex;justify-content:space-between"><span>Part 3 of 3</span><span class="pc">0%</span></div><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Part 3 of 3" data-sim="4500"><i></i></div></div>
+<div style="margin:8px 0"><div style="display:flex;justify-content:space-between"><span>Client part</span><span class="pc">0%</span></div><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Client part" data-sim="5000"><i></i></div></div>
+<div style="margin:8px 0"><div style="display:flex;justify-content:space-between"><span>Checksums</span><span class="pc">0%</span></div><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Checksums" data-sim="5500" data-simtext-for="pk"><i></i></div></div>
+<p class="mono" id="pk">packing</p>
+<div class="sample">Simulated with timers. Sample data only.</div>
+<div class="nav"><button class="btn ghost" type="button" data-go="password">Back</button><button class="btn" type="button" data-go="upload">Next: upload</button></div>
+</div></section></article>
+
+<article data-screen="upload" data-title="Upload step" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Upload</span><span class="mockbadge">Mock, not the working tool</span></div><div class="sbody">
+<h3>Upload the bundle</h3>
+<p>The tool does not upload. You put the files where you can reach them from the new laptop. Pick the place; the page shows the matching steps.</p>
+<h4>Data parts and kit zip</h4>
+<label class="choice"><input type="radio" name="up1" value="Accenture OneDrive" checked> Accenture OneDrive</label>
+<label class="choice"><input type="radio" name="up1" value="Google Drive"> Google Drive</label>
+<h4>Client part</h4>
+<label class="choice"><input type="radio" name="up2" value="Accenture OneDrive" checked> Accenture OneDrive only</label>
+<p class="card purple" id="upnote">Open OneDrive in your browser, create a folder named move, drag the .7z parts and the kit zip in, and wait until each file shows a green tick.</p>
+<p class="card purple"><strong>Never</strong> put the client part on a client's OneDrive or on a personal drive. Never upload the password.</p>
+<div class="sample">Sample steps. Nothing is uploaded by this mock.</div>
+<div class="nav"><button class="btn ghost" type="button" data-go="packing">Back</button><button class="btn" type="button" data-go="restore">Next: on the new laptop</button></div>
+</div></section></article>
+
+<article data-screen="restore" data-title="New laptop: restore" class="hide">
+<p class="inline">Guide: on the new laptop, download the bundle into one folder, unzip the kit, run one command.</p>
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>New laptop: restore</span><span class="mockbadge">Mock, not the working tool</span></div><div class="sbody">
+<h3>On the new laptop: restore</h3>
+<ol><li>Download the kit zip and all data parts into one new folder, for example <code>C:\move</code>.</li>
+<li>Unzip <code>laptop-move-kit.zip</code> there.</li>
+<li>Open PowerShell in that folder and run the one command below. Do not change the execution policy.</li></ol>
+<pre>.\node.exe kit\kit.mjs restore --bundle C:\move</pre>
+<p>Type the password when 7-Zip asks, once per archive.</p>
+<div class="sample">Sample data only. No real names, paths or secrets.</div>
+<div class="nav"><button class="btn ghost" type="button" data-go="upload">Back</button><button class="btn" type="button" data-go="restoring">Next: restore progress</button></div>
+</div></section></article>
+
+<article data-screen="restoring" data-title="Restore progress" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Restoring</span><span class="mockbadge">Mock, not the working tool</span></div><div class="sbody">
+<h3>Restoring on the new laptop</h3>
+<table><tr><th>Step</th><th>State</th></tr>
+<tr><td>Check the checksums</td><td class="rs" data-at="12">waiting</td></tr>
+<tr><td>Unpack the data parts</td><td class="rs" data-at="35">waiting</td></tr>
+<tr><td>Install applications</td><td class="rs" data-at="55">waiting</td></tr>
+<tr><td>Clone repositories again</td><td class="rs" data-at="75">waiting</td></tr>
+<tr><td>Put folders and settings back</td><td class="rs" data-at="90">waiting</td></tr>
+<tr><td>Write the report</td><td class="rs" data-at="99">waiting</td></tr></table>
+<div class="bar" style="margin-top:10px" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Restore" data-sim="6000" data-steps="rs"><i></i></div>
+<p class="mono">An app is installed only when its signature is valid and matches the recorded publisher.</p>
+<div class="sample">Simulated with a timer. Sample data only.</div>
+<div class="nav"><button class="btn ghost" type="button" data-go="restore">Back</button><button class="btn" type="button" data-go="report">Next: the report</button></div>
+</div></section></article>
+
+<article data-screen="report" data-title="Final report" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Report</span><span class="mockbadge">Mock, not the working tool</span></div><div class="sbody">
+<h3>Final report</h3>
+<p><span class="tag ok">11 done</span> <span class="tag warn">2 to do by hand</span> <span class="tag bad">1 failed</span></p>
+<table><tr><th>Item</th><th>Result</th></tr>
+<tr><td>Folders and settings</td><td><span class="tag ok">restored</span></td></tr>
+<tr><td>sample-api</td><td><span class="tag ok">cloned, 2 commits restored, 3 files copied</span></td></tr>
+<tr><td>SampleDraw Pro</td><td><span class="tag bad">signature did not match the recorded publisher, not run</span></td></tr>
+<tr><td>Corporate VPN client</td><td><span class="tag warn">install from Software Center</span></td></tr>
+<tr><td>client-service-a</td><td><span class="tag warn">clone again after you push</span></td></tr></table>
+<p><button class="btn sm" type="button" data-say="repsay">Open the report as HTML</button> <button class="btn ghost sm" type="button" data-say="repsay">Print</button> <span id="repsay" role="status" class="rec"></span></p>
+<div class="sample">Sample data only. These buttons do nothing in the mock.</div>
+<div class="nav"><button class="btn ghost" type="button" data-go="restoring">Back</button><button class="btn" type="button" data-go="tutorial">Next: tutorial</button></div>
+</div></section></article>
+
+<article data-screen="tutorial" data-title="Tutorial" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Tutorial</span><span class="mockbadge">Mock, not the working tool</span></div><div class="sbody">
+<h3>Tutorial: your first move in 5 steps</h3>
+<svg viewBox="0 0 640 110" width="100%" role="img" aria-label="Five steps: scan, choose, pack, upload, restore">
+<g><rect x="8" y="20" width="110" height="60" fill="#A100FF"/><text x="63" y="56" fill="#fff" font-family="Arial" font-size="16" font-weight="700" text-anchor="middle">1. Scan</text></g><path d="M120 50h12" stroke="#000" stroke-width="2"/>
+<g><rect x="134" y="20" width="110" height="60" fill="#A100FF"/><text x="189" y="56" fill="#fff" font-family="Arial" font-size="16" font-weight="700" text-anchor="middle">2. Choose</text></g><path d="M246 50h12" stroke="#000" stroke-width="2"/>
+<g><rect x="260" y="20" width="110" height="60" fill="#A100FF"/><text x="315" y="56" fill="#fff" font-family="Arial" font-size="16" font-weight="700" text-anchor="middle">3. Pack</text></g><path d="M372 50h12" stroke="#000" stroke-width="2"/>
+<g><rect x="386" y="20" width="110" height="60" fill="#460073"/><text x="441" y="56" fill="#fff" font-family="Arial" font-size="16" font-weight="700" text-anchor="middle">4. Upload</text></g><path d="M498 50h12" stroke="#000" stroke-width="2"/>
+<g><rect x="512" y="20" width="110" height="60" fill="#460073"/><text x="567" y="56" fill="#fff" font-family="Arial" font-size="16" font-weight="700" text-anchor="middle">5. Restore</text></g>
+<text x="8" y="104" font-size="12" font-family="Arial" fill="#4D4D4D">Purple: old laptop. Dark purple: moving and new laptop.</text></svg>
+<ol><li><strong>Scan.</strong> The mover lists folders, applications, settings and repositories. Nothing is changed.</li>
+<li><strong>Choose.</strong> Tick what moves. Client repositories with a remote stay out.</li>
+<li><strong>Pack.</strong> Type a password when 7-Zip asks. Keep it safe: it is not stored.</li>
+<li><strong>Upload.</strong> Put the bundle on Accenture OneDrive or Google Drive yourself.</li>
+<li><strong>Restore.</strong> On the new laptop download the bundle and run one command.</li></ol>
+<div class="card purple"><strong>Tip:</strong> run the dry run first. It shows size, parts, time and the route of every app.</div>
+<div class="sample">In the working tool each step has a page like this with real screenshots next to the text, and the whole guide prints as one HTML file.</div>
+<div class="nav"><button class="btn ghost" type="button" data-go="report">Back</button><button class="btn" type="button" data-go="instructions">Next: detailed instructions</button></div>
+</div></section></article>
+
+<article data-screen="instructions" data-title="Detailed instructions" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Instructions</span><span class="mockbadge">Mock, not the working tool</span></div><div class="sbody">
+<h3>Detailed instructions: restore on the new laptop</h3>
+<ol><li>Download the kit zip and all data parts into one new folder, for example <code>C:\move</code>.</li>
+<li>Unzip <code>laptop-move-kit.zip</code> there. It holds the mover, the manifest, a README and the signed <code>node.exe</code>.</li>
+<li>Open PowerShell in that folder and run the one command shown below. Do not change the execution policy.</li>
+<li>Type the password when 7-Zip asks, once per archive.</li>
+<li>Read the report. Do the by-hand list. Clone the client repositories after you push them.</li></ol>
+<pre>.\node.exe kit\kit.mjs restore --bundle C:\move</pre>
+<details><summary>If a checksum fails</summary>Download that part again. Never unpack a part that failed its check.</details>
+<details><summary>If an app install is refused</summary>The signature did not match the recorded publisher. Install that app from the vendor's own page.</details>
+<details><summary>If 7-Zip says the password is wrong</summary>Type it again with care for capital letters and keyboard layout. The password cannot be recovered.</details>
+<div class="sample">Sample data only. No real names, paths or secrets.</div>
+<div class="nav"><button class="btn ghost" type="button" data-go="tutorial">Back</button><button class="btn" type="button" data-go="help">Next: help and links</button></div>
+</div></section></article>
+
+<article data-screen="help" data-title="Help and links" class="hide">
+<h2>Help, FAQ and security</h2>
+<div class="card purple"><h4>Help links</h4>
+<ul><li><a href="#" data-go="tutorial">The 5-step tutorial</a></li><li><a href="#" data-go="instructions">Detailed instructions for the new laptop</a></li><li><a href="#" data-go="byhand">The by-hand list of secrets</a></li><li><a href="#" data-link="Ask IT">Ask IT for help (a link to the service desk in the working tool)</a> <span class="rec" id="linksay" role="status"></span></li></ul></div>
+<h3>FAQ</h3>
+<details><summary>Is my password stored anywhere?</summary>No. 7-Zip asks for it at its own prompt. The mover never sees, stores or logs it.</details>
+<details><summary>Can I use OneDrive?</summary>Accenture OneDrive or Google Drive, yes. Never a client's OneDrive.</details>
+<details><summary>What about client repositories?</summary>With a remote: they stay out, you push first and clone again. Without a remote: a separate encrypted client part for Accenture OneDrive only.</details>
+<details><summary>Does it change my repositories?</summary>No. It does not push or fetch and reads git without locks.</details>
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Security</span><span class="mockbadge">Mock, not the working tool</span></div><div class="sbody">
+<h3>Security notes for IT</h3>
+<table><tr><th>Question</th><th>Answer</th></tr>
+<tr><td>Encryption</td><td>7-Zip AES-256, file names encrypted, password typed by the user, never stored</td></tr>
+<tr><td>Integrity</td><td>SHA-256 per part, checked before anything is unpacked</td></tr>
+<tr><td>Executables</td><td>Only the official signed portable node.exe and winget. Vendor downloads run only if the Authenticode signature is valid and matches the recorded publisher</td></tr>
+<tr><td>Network</td><td>The tool listens on 127.0.0.1 only. No upload by the tool: the user uploads</td></tr>
+<tr><td>Secrets</td><td>Never copied, listed for by-hand moving</td></tr>
+<tr><td>Client data</td><td>Remote repositories stay out; others go in a separate part for Accenture OneDrive only</td></tr>
+<tr><td>Credential stores</td><td>None used</td></tr></table>
+<div class="sample">Sample data only.</div>
+<div class="nav"><button class="btn ghost" type="button" data-go="instructions">Back</button><button class="btn" type="button" data-go="feedback">Next: Feedback</button></div>
+</div></section></article>
+
+<article data-screen="feedback" data-title="Feedback" class="hide fb">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Feedback</span><span class="mockbadge">Mock, not the working tool</span></div><div class="sbody">
+<h3>Feedback</h3>
+<p>Thank you for looking. Say what you think of each screen; every box is optional. Then press Copy feedback or Save feedback and send the result back to whoever shared this file with you.</p>
+<h4>Your comments, screen by screen</h4>
+<div id="screencomments"></div>
+<fieldset><legend>Additional comments</legend><label class="cl" for="extra">Anything else (optional)</label><textarea id="extra"></textarea></fieldset>
+<h4 style="margin-top:20px">Questions for the owner of the mock</h4>
+<div id="qs"></div>
+<p><button class="btn" id="fbcopy" type="button">Copy feedback</button> <button class="btn ghost" id="fbsave" type="button">Save feedback</button><span id="fbstatus" role="status"></span></p>
+<div class="sample">Nothing leaves your computer: Copy puts the text on your clipboard and Save downloads a JSON file.</div>
+<div class="nav"><button class="btn ghost" type="button" data-go="help">Back</button><button class="btn ghost" type="button" data-go="start">Back to the start</button></div>
+</div></section></article>
+
+</main></div>
+<script>
+(function(){
+var arts=[].slice.call(document.querySelectorAll('article[data-screen]'));
+var toc=document.getElementById('toc');
+var groups=[['Part 1: scan and choose',['start','scan','apps','folders','repos','settings','byhand']],['Part 2: dry run and pack',['dryrun','password','packing']],['Part 3 and 4: upload and restore',['upload','restore','restoring','report']],['Guide',['tutorial','instructions','help']],['Feedback',['feedback']]];
+var byId={};arts.forEach(function(a){byId[a.getAttribute('data-screen')]=a;});
+groups.forEach(function(g){var h=document.createElement('h2');h.textContent=g[0];toc.appendChild(h);g[1].forEach(function(id){var b=document.createElement('button');b.type='button';b.setAttribute('data-go',id);b.setAttribute('data-toc',id);b.textContent=byId[id].getAttribute('data-title');toc.appendChild(b);});});
+var timers=[];
+function clearTimers(){timers.forEach(function(t){clearInterval(t);});timers=[];}
+function sim(bar){var ms=+bar.getAttribute('data-sim'),i=bar.querySelector('i'),pc=bar.parentNode.querySelector('.pc'),t0=Date.now();
+var stepsCls=bar.getAttribute('data-steps');i.style.width='0%';bar.setAttribute('aria-valuenow','0');if(pc)pc.textContent='0%';
+var art=bar.closest('article'),txt=art.querySelector('[data-simtext]');if(txt)txt.textContent=txt.getAttribute('data-simtext').split('|')[0];
+var id=setInterval(function(){var p=Math.min(100,Math.round((Date.now()-t0)/ms*100));i.style.width=p+'%';bar.setAttribute('aria-valuenow',String(p));if(pc)pc.textContent=p+'%';
+if(stepsCls){[].forEach.call(art.querySelectorAll('.'+stepsCls),function(c){var at=+c.getAttribute('data-at');if(p>=at){c.innerHTML='<span class="tag ok">done</span>';}else if(p>=at-20){c.innerHTML='<span class="tag pp">running</span>';}});}
+if(p>=100){clearInterval(id);if(txt)txt.textContent=txt.getAttribute('data-simtext').split('|')[1];if(bar.getAttribute('data-simtext-for')){document.getElementById(bar.getAttribute('data-simtext-for')).textContent='Packing finished: 3 data parts, 1 client part, checksums written';}}},100);timers.push(id);}
+function sums(){arts.forEach(function(a){var s=a.querySelector('.selsum');if(!s)return;var boxes=[].slice.call(a.querySelectorAll('input[type=checkbox][data-size]')),n=0,gb=0;boxes.forEach(function(b){if(b.checked){n++;gb+=+b.getAttribute('data-size');}});s.textContent='Selected: '+n+' item'+(n===1?'':'s')+(gb>0?', about '+gb.toFixed(2)+' GB':'');});}
+function show(id){if(!byId[id])return;clearTimers();arts.forEach(function(a){a.classList.toggle('hide',a!==byId[id]);});
+[].forEach.call(document.querySelectorAll('[data-toc]'),function(b){var on=b.getAttribute('data-toc')===id;b.classList.toggle('on',on);b.setAttribute('aria-current',on?'true':'false');});
+[].forEach.call(byId[id].querySelectorAll('[data-sim]'),sim);
+document.title='Laptop mover mock: '+byId[id].getAttribute('data-title');window.scrollTo(0,0);document.body.setAttribute('data-now',id);}
+document.addEventListener('click',function(e){var b=e.target.closest('[data-go]');if(b){e.preventDefault();show(b.getAttribute('data-go'));return;}
+var l=e.target.closest('[data-link]');if(l){e.preventDefault();document.getElementById('linksay').textContent='Mock: this link opens '+l.getAttribute('data-link')+' in the working tool.';return;}
+var s=e.target.closest('[data-say]');if(s){document.getElementById(s.getAttribute('data-say')).textContent='Mock: this button does nothing here.';}});
+document.addEventListener('change',function(e){if(e.target.matches('input[type=checkbox][data-size]'))sums();
+if(e.target.name==='up1'){document.getElementById('upnote').textContent=e.target.value==='Google Drive'?'Open Google Drive in your browser, create a folder named move, drag the .7z parts and the kit zip in, and wait until each file shows as uploaded. The client part still goes to Accenture OneDrive only.':'Open OneDrive in your browser, create a folder named move, drag the .7z parts and the kit zip in, and wait until each file shows a green tick.';}});
+document.getElementById('pwsim').onclick=function(){document.getElementById('pwstat').textContent='Mock: the real 7-Zip window takes the password, this page never does.';};
+sums();
+/* feedback */
+var SCREENS=arts.map(function(a){return{id:a.getAttribute('data-screen'),title:a.getAttribute('data-title')};}).filter(function(s){return s.id!=='feedback';});
+var sc=document.getElementById('screencomments');
+SCREENS.forEach(function(s,i){var d=document.createElement('div');d.innerHTML='<label class="cl" for="sc'+i+'"></label><textarea id="sc'+i+'" data-screen-comment="'+s.id+'"></textarea>';d.querySelector('label').textContent='Comment on the screen: '+s.title+' (optional)';sc.appendChild(d);});
+var Q=[{q:'Make it as shown?',o:['Yes, build it as shown','Yes, with the changes in the comments','Another round of the mock first'],r:0},{q:'Anything the mock shows that should not be in the first version?',free:true}];
+var qs=document.getElementById('qs');
+Q.forEach(function(q,i){var n=i+1,f=document.createElement('fieldset'),h='<legend>'+n+'. '+q.q+'</legend>';
+if(q.free){h+='<label class="cl" for="qa'+n+'">Your answer (free text, optional)</label><textarea id="qa'+n+'"></textarea>';}
+else{q.o.forEach(function(o,j){h+='<label class="pick"><input type="radio" name="q'+n+'" value="'+j+'"> <span class="ot"></span>'+(j===q.r?' <span class="rec">(Recommended)</span>':'')+'</label>';});}
+h+='<label class="cl" for="qc'+n+'">Comment on question '+n+' (optional)</label><textarea id="qc'+n+'"></textarea>';f.innerHTML=h;
+if(!q.free){[].forEach.call(f.querySelectorAll('.ot'),function(sp,j){sp.textContent=['a','b','c'][j]+') '+q.o[j];});}
+qs.appendChild(f);});
+function collect(){var o={mock:'Laptop mover clickable mock, guide-first portal',screens:[],additionalComments:document.getElementById('extra').value,ownerQuestions:[]};
+SCREENS.forEach(function(s,i){o.screens.push({screen:s.title,comment:document.getElementById('sc'+i).value});});
+Q.forEach(function(q,i){var n=i+1,r={number:n,question:q.q,comment:document.getElementById('qc'+n).value};
+if(q.free){r.answer=document.getElementById('qa'+n).value;}else{var c=document.querySelector('input[name="q'+n+'"]:checked');r.options=q.o;r.recommended=q.o[q.r];r.answer=c?q.o[+c.value]:null;}
+o.ownerQuestions.push(r);});return o;}
+function text(){var o=collect(),t='Laptop mover mock: feedback\n\nComments by screen\n';
+o.screens.forEach(function(s){t+='- '+s.screen+': '+(s.comment||'(none)')+'\n';});
+t+='\nAdditional comments: '+(o.additionalComments||'(none)')+'\n\nQuestions for the owner\n';
+o.ownerQuestions.forEach(function(r){t+=r.number+'. '+r.question+'\n   Answer: '+(r.answer||'(none)')+'\n   Comment: '+(r.comment||'(none)')+'\n';});return t;}
+function say(m){document.getElementById('fbstatus').textContent=m;}
+document.getElementById('fbcopy').onclick=function(){var t=text();window.__copied=t;
+var done=function(){say('Copied')};var fail=function(){var ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');say('Copied')}catch(e){say('Copy failed, use Save feedback')}ta.remove();};
+try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,fail);}else{fail();}}catch(e){fail();}};
+document.getElementById('fbsave').onclick=function(){var b=new Blob([JSON.stringify(collect(),null,2)],{type:'application/json'});var u=URL.createObjectURL(b),l=document.createElement('a');l.href=u;l.download='laptop-mover-mock-feedback.json';document.body.appendChild(l);l.click();l.remove();say('Saved');};
+show('start');
+})();
+</script>
+</body>
+</html>
