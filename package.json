@@ -1,0 +1,14 @@
+{
+  "name": "laptop-move",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Packs a laptop's local work into encrypted parts and restores it on a new laptop",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test kit/test/*.spec.mjs",
+    "typecheck": "node C:/git_accenture/ai-agent-orchestrator/node_modules/typescript/bin/tsc -p ."
+  }
+}

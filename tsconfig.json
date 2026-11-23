@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": false,
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "skipLibCheck": true,
+    "types": ["node"],
+    "typeRoots": ["C:/git_accenture/ai-agent-orchestrator/node_modules/@types"]
+  },
+  "include": ["kit/**/*.mjs"]
+}
