@@ -182,6 +182,11 @@ test('Host, Origin, the page key and JSON are checked', async (t) => {
   assert.equal((await call(s.port, 'GET', '/guide/start', { headers: { Cookie: cookie } })).status, 200);
   assert.equal((await call(s.port, 'GET', '/guide/print', { headers: { Cookie: cookie } })).status, 200);
   assert.equal((await call(s.port, 'GET', '/guide/..%5Cserver.mjs', { headers: { Cookie: cookie } })).status, 404);
+  const shot = await call(s.port, 'GET', '/guide/img/01-start.png', { headers: { Cookie: cookie } });
+  assert.equal(shot.status, 200);
+  assert.match(String(shot.headers['content-type']), /^image\/png$/);
+  assert.equal((await call(s.port, 'GET', '/guide/img/..%5Cserver.png', { headers: { Cookie: cookie } })).status, 404);
+  assert.equal((await call(s.port, 'GET', '/guide.css', { headers: { Cookie: cookie } })).status, 200);
   const icon = await call(s.port, 'GET', '/icon.svg', { headers: { Cookie: cookie } });
   assert.equal(icon.status, 200);
   assert.match(String(icon.headers['content-type']), /^image\/svg\+xml/);

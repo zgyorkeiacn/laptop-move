@@ -180,7 +180,18 @@ try {
   g.on('console', (m) => { if (m.type() === 'error') errors.push(`guide console ${m.text()}`); });
   await g.goto(new URL('/guide/print', s.url).href);
   const sections = await g.locator('section.gsec').count();
-  check('the printable guide holds all 12 topics', sections === 12, String(sections));
+  check('the printable guide holds all 14 topics', sections === 14, String(sections));
+  const broken = await g.evaluate(async () => {
+    const bad = [];
+    for (const i of document.querySelectorAll('img')) if (!i.complete || i.naturalWidth === 0) bad.push(i.getAttribute('src'));
+    for (const a of document.querySelectorAll('a[href]')) {
+      const h = a.getAttribute('href') ?? '';
+      if (h.startsWith('#')) { if (!document.getElementById(h.slice(1))) bad.push(h); }
+      else if (h.startsWith('/')) { const r = await fetch(h); if (r.status !== 200) bad.push(h); }
+    }
+    return bad;
+  });
+  check('every picture loads and every link in the printable guide resolves', broken.length === 0, broken.join(' '));
   await g.screenshot({ path: w.join(shots, '18-guide-print.png'), fullPage: true });
   await g.close();
 

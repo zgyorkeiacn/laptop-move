@@ -1,12 +1,63 @@
 <h2>Security notes for IT</h2>
+<p>This page describes what the laptop mover reads, writes and never touches, so that IT can review it. The mover is a small Node.js program with no outside dependencies. Its source is in the repository and its tests run offline.</p>
+<figure class="fig"><svg viewBox="0 0 760 230" width="100%" role="img" aria-label="Data flow: the browser page talks to the local mover on 127.0.0.1; the mover reads the chosen folders, writes the bundle folder and pipes the password to 7-Zip; the user uploads">
+<g font-family="Arial,Helvetica,sans-serif" font-size="13" text-anchor="middle">
+<rect x="6" y="20" width="150" height="60" fill="#fff" stroke="#000" stroke-width="2"/><text x="81" y="46" font-weight="700">Browser page</text><text x="81" y="64" font-size="11">your own browser</text>
+<rect x="226" y="20" width="170" height="60" fill="#A100FF"/><text x="311" y="46" fill="#fff" font-weight="700">Mover (node.exe)</text><text x="311" y="64" fill="#fff" font-size="11">127.0.0.1 only, one-time link</text>
+<rect x="466" y="20" width="130" height="60" fill="#460073"/><text x="531" y="46" fill="#fff" font-weight="700">7-Zip 26.03+</text><text x="531" y="64" fill="#fff" font-size="11">AES-256, password on stdin</text>
+<rect x="636" y="20" width="118" height="60" fill="#000"/><text x="695" y="46" fill="#fff" font-weight="700">Bundle folder</text><text x="695" y="64" fill="#fff" font-size="11">local drive</text>
+<rect x="226" y="140" width="170" height="56" fill="#F2F2F2" stroke="#4D4D4D"/><text x="311" y="164" font-weight="700">Your chosen folders</text><text x="311" y="182" font-size="11">read only; secrets skipped</text>
+<rect x="466" y="140" width="288" height="56" fill="#fff" stroke="#B00020" stroke-width="2"/><text x="610" y="164" font-weight="700" fill="#B00020">Not done by the tool</text><text x="610" y="182" font-size="11">upload, credential stores, admin rights</text>
+</g>
+<g stroke="#000" stroke-width="2" fill="none"><path d="M158 50h66"/><path d="M398 50h66"/><path d="M598 50h36"/><path d="M311 82v56"/></g>
+<g fill="#000"><path d="M224 50l-8-5v10z"/><path d="M156 50l8-5v10z"/><path d="M464 50l-8-5v10z"/><path d="M634 50l-8-5v10z"/><path d="M311 138l-5-8h10z"/></g>
+</svg><figcaption>What talks to what. The only network traffic the tool starts is described in the table below.</figcaption></figure>
+<h3>Summary</h3>
 <table>
 <tr><th>Question</th><th>Answer</th></tr>
-<tr><td>Encryption</td><td>7-Zip AES-256, file names encrypted. The password is typed by the user, piped to 7-Zip and never stored.</td></tr>
-<tr><td>Integrity</td><td>SHA-256 per part, checked before anything is unpacked.</td></tr>
-<tr><td>Executables</td><td>Only the official signed portable node.exe, the installed 7-Zip 26.03 or newer, and winget. Vendor downloads run only if the Authenticode signature is valid and matches the recorded publisher.</td></tr>
-<tr><td>Network</td><td>The page is served on 127.0.0.1 only, on a free port, behind a one-time link, a session cookie and a per-page key. Requests from another site or another host name are refused. The tool uploads nothing.</td></tr>
-<tr><td>Secrets</td><td>Never copied; listed for by-hand moving. No Wi-Fi profile or key is exported.</td></tr>
-<tr><td>Client data</td><td>Client repositories with a remote stay out; others go into a separate encrypted part for Accenture OneDrive only. The mover never writes into a client's OneDrive.</td></tr>
-<tr><td>Credential stores</td><td>None used.</td></tr>
+<tr><td>What does it do?</td><td>Packs chosen folders, repository state, settings and an application list into encrypted parts on a local folder, and restores them on another laptop.</td></tr>
+<tr><td>Does it upload anything?</td><td>No. The user uploads the bundle to their Accenture OneDrive by hand. The tool never writes into a OneDrive folder or a client's folder.</td></tr>
+<tr><td>Are credentials moved?</td><td>No. Secret-bearing files and folders are never copied, even if ticked. They are listed for the user to set up again.</td></tr>
+<tr><td>Does it read the OS secret store?</td><td>No. It does not use DPAPI, Windows Credential Manager, <code>cmdkey</code>, keytar or the Keychain, and it exports no Wi-Fi profile or key.</td></tr>
+<tr><td>Does it bypass anything?</td><td>No. It needs no administrator rights, never changes the execution policy and never starts PowerShell with a bypass. Its PowerShell calls use <code>-NoProfile -NonInteractive</code> and only read a file's signature.</td></tr>
+<tr><td>What executables does it run?</td><td>The signed portable <code>node.exe</code> shipped in the kit (or the user's own Node), the installed 7-Zip 26.03 or newer at <code>C:\Program Files\7-Zip\7z.exe</code>, <code>git</code>, <code>winget</code>, <code>reg</code> and Windows PowerShell for signature checks. Vendor installers run only if the Authenticode signature is valid and matches the publisher recorded at packing time.</td></tr>
+<tr><td>Encryption</td><td>7-Zip AES-256 with encrypted file names. One password for all parts, typed by the user twice in the page.</td></tr>
+<tr><td>Integrity</td><td>SHA-256 of every part, recorded at packing and checked before anything is unpacked.</td></tr>
 </table>
-<p class="small">A fuller guide page comes later.</p>
+<h3>What it reads</h3>
+<ul>
+<li>The folders and repositories the user ticked, and the scan roots the user gave (default: the user folder and the system drive, names and sizes only).</li>
+<li>Git state, read only: branches, remotes, unpushed commits, stashes, uncommitted files. Git runs with optional locks off and never fetches, pulls, pushes or changes a ref on the old laptop.</li>
+<li>The list of installed applications from <code>winget list</code>, and the user's PATH from the registry (<code>reg query</code>).</li>
+<li>The selection file and the local client rules file, if present.</li>
+</ul>
+<h3>What it writes</h3>
+<ul>
+<li><strong>Old laptop:</strong> the bundle folder the user names, with its own staging folder; the selection file if the user saves it, with a dated <code>.bak.json</code> copy of an older one. Nothing is deleted or changed in the user's folders or repositories.</li>
+<li><strong>New laptop:</strong> a work folder for unpacking; the restored folders, settings and repositories at their original paths; backups of any file it replaces; junctions; an HTML report. If it installs a portable tool, it adds that folder to the user's PATH (<code>HKCU\Environment</code>) and nothing else in the registry.</li>
+<li>Applications installed through winget or a signed vendor installer, with the user's own rights.</li>
+</ul>
+<h3>Network</h3>
+<ul>
+<li><strong>The page:</strong> served on 127.0.0.1 only, on a free port, behind a one-time link that is swapped for an HttpOnly, SameSite=Strict cookie, plus a per-session key header. Requests with another Host or Origin are refused. A strict content security policy allows only the page's own files, with no outside scripts or fonts. The mover stops when the page closes or the user presses End.</li>
+<li><strong>Old laptop:</strong> none started by the tool, apart from winget's own lookups if the user asks for the application list.</li>
+<li><strong>New laptop:</strong> winget, <code>git clone</code> from the repositories' own remotes (the user signs in through Git Credential Manager), and, for a few tools, a vendor download over https that is checked against the vendor's published checksum and signature.</li>
+<li>The tool uploads nothing, and sends no telemetry.</li>
+</ul>
+<h3>The password</h3>
+<p>The user types it into the page. The page sends it to the mover on 127.0.0.1, and the mover pipes it to 7-Zip's standard input. It is never on a command line, in a file, in a log or in an address, and the mover keeps no copy after the step. It is never uploaded, and it cannot be recovered: if lost, the bundle cannot be opened. Without the page, 7-Zip asks for it at its own console prompt and the mover never sees it.</p>
+<h3>Client data</h3>
+<ul>
+<li>Client repositories with a remote stay out of the bundle.</li>
+<li>Client folders and repositories without a remote go into a separate encrypted client part for the user's Accenture OneDrive only.</li>
+<li>The tool refuses to write its output into a client folder or a client's OneDrive, as set in the local client rules file. The tool itself names no client.</li>
+</ul>
+<h3>What it never touches</h3>
+<ul>
+<li>Credentials of any kind, the Windows secret store, browser profiles and passwords, saved Wi-Fi keys.</li>
+<li>Other users' folders, system settings, services, scheduled tasks, firewall, drivers and policies.</li>
+<li>The execution policy, UAC, or any administrator-only setting.</li>
+<li>A client's OneDrive or any cloud drive other than the user's own Accenture OneDrive, which the user, not the tool, uses.</li>
+</ul>
+<h3>Review it yourself</h3>
+<p>The repository holds the source and its tests (<code>npm test</code>), and a check that drives the page in Edge on sample data. Run the dry run to see exactly what would be packed, with nothing written.</p>

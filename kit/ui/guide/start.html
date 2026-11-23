@@ -1,10 +1,41 @@
-<h2>Start</h2>
-<p>The laptop mover helps you move your work from an old laptop to a new one in four parts: scan and choose, dry run and pack, upload, restore and check. It runs on your own computer only, in a page at 127.0.0.1, and it uploads nothing.</p>
+<h2>Getting started</h2>
+<p>The laptop mover helps you carry your own work from an old laptop to a new one. It reads what you choose, packs it into encrypted parts, and, on the new laptop, puts everything back where it was and writes a report of what is left for you to do. It runs on your own computer only, in a page at 127.0.0.1, and it uploads nothing: you do the upload yourself.</p>
+<p>It is for any Accenture employee. You need Windows 11, a Command Prompt or PowerShell window, and about an hour of your time, most of it waiting.</p>
+<figure class="fig"><svg viewBox="0 0 760 150" width="100%" role="img" aria-label="Old laptop, bundle folder, your Accenture OneDrive, new laptop">
+<g font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="700" text-anchor="middle">
+<rect x="6" y="30" width="150" height="70" fill="#A100FF"/><text x="81" y="60" fill="#fff">Old laptop</text><text x="81" y="80" fill="#fff" font-weight="400" font-size="12">scan, choose, pack</text>
+<rect x="206" y="30" width="150" height="70" fill="#7500C0"/><text x="281" y="60" fill="#fff">Bundle folder</text><text x="281" y="80" fill="#fff" font-weight="400" font-size="12">encrypted parts + kit zip</text>
+<rect x="406" y="30" width="150" height="70" fill="#000"/><text x="481" y="60" fill="#fff">Accenture OneDrive</text><text x="481" y="80" fill="#fff" font-weight="400" font-size="12">you upload, you download</text>
+<rect x="606" y="30" width="148" height="70" fill="#460073"/><text x="680" y="60" fill="#fff">New laptop</text><text x="680" y="80" fill="#fff" font-weight="400" font-size="12">restore, report</text>
+</g>
+<g stroke="#000" stroke-width="2" fill="none"><path d="M158 65h46"/><path d="M358 65h46"/><path d="M558 65h46"/></g>
+<g fill="#000"><path d="M204 65l-8-5v10z"/><path d="M404 65l-8-5v10z"/><path d="M604 65l-8-5v10z"/></g>
+<text x="6" y="132" font-family="Arial,Helvetica,sans-serif" font-size="12" fill="#4D4D4D">The tool never uploads. The password is never in a file or a command line.</text></svg>
+<figcaption>The whole move in one picture.</figcaption></figure>
+<h3>What the mover moves</h3>
+<ul>
+<li><strong>Folders you tick:</strong> copied whole, to the same path on the new laptop, minus folders that can be rebuilt (<code>node_modules</code>, build output, caches, <code>.temp</code>).</li>
+<li><strong>Git repositories:</strong> cloned again from their remote on the new laptop. Your unpushed commits and stashes travel as a git bundle, and your uncommitted files are copied. A repository with no remote is copied whole.</li>
+<li><strong>Applications:</strong> installed again on the new laptop, one by one, with winget or a signed vendor installer. Software Center apps are listed for you to install there.</li>
+<li><strong>Settings you tick:</strong> editor extensions, global npm packages and the settings files of the apps you chose.</li>
+<li><strong>Junctions:</strong> recreated.</li>
+</ul>
+<h3>What the mover never moves</h3>
+<ul>
+<li><strong>Secrets.</strong> Files such as <code>.env</code>, <code>.npmrc</code>, SSH keys, certificates, cloud credentials, tokens and browser logins are never copied, even if you ticked their folder. They are listed on the by-hand list for you to set up again yourself.</li>
+<li><strong>Credentials stored by Windows</strong> (Credential Manager, the Windows secret store) and saved Wi-Fi keys.</li>
+<li><strong>Printers.</strong> Secure print queues (Pharos Secure Print) come from the company setup on the new laptop: you check that one page prints.</li>
+<li><strong>Client repositories that have a remote.</strong> They stay out of the bundle: you push, then clone again.</li>
+</ul>
+<h3>The four parts</h3>
 <ol>
-<li>On the old laptop, open PowerShell in the mover's folder and run <code>node kit.mjs ui</code>. The page opens in your browser.</li>
-<li>Load the selection you saved earlier, or scan this laptop and choose what moves.</li>
-<li>Run the dry run, then pack with a password you type twice.</li>
-<li>Upload the files to your Accenture OneDrive yourself.</li>
-<li>On the new laptop, unzip the kit, run <code>.\node.exe kit.mjs ui</code> and restore.</li>
+<li><strong>Scan and choose</strong> on the old laptop. Nothing is changed.</li>
+<li><strong>Dry run and pack</strong>: see size and time first, then pack with a password you type twice.</li>
+<li><strong>Upload</strong> the bundle to your Accenture OneDrive, and download it on the new laptop.</li>
+<li><strong>Restore and check</strong> on the new laptop: one page, then a report.</li>
 </ol>
-<p class="small">A fuller guide page comes later.</p>
+<h3>Start the mover</h3>
+<p>On the old laptop, open PowerShell in the <code>kit</code> folder of the mover and run:</p>
+<pre>node kit.mjs ui</pre>
+<p>The page opens in your default browser through a one-time link. The mover stops when you close the page, press <strong>End the mover</strong>. Use <code>--no-open</code> to have the link printed instead of opened.</p>
+<figure class="fig"><img src="/guide/img/01-start.png" width="1280" height="800" alt="The start page of the mover, with the selection loaded and four part cards"><figcaption>The start page. The side menu follows the four parts; every screen has a Help link into this guide.</figcaption></figure>

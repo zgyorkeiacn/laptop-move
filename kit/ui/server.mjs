@@ -16,15 +16,16 @@ import { fileURLToPath } from 'node:url';
 import * as defaultEngine from '../lib/engine.mjs';
 import { openFile } from '../lib/env.mjs';
 import { parseSize } from '../lib/util.mjs';
+import { TOPICS, TOPIC_IDS, readTopic, topicNav, printableBody } from './guide-build.mjs';
 
 const w = path.win32;
 const UI_DIR = w.dirname(fileURLToPath(import.meta.url));
 const KIT_DIR = w.dirname(UI_DIR);
-const STATIC = { '/app.css': ['app.css', 'text/css'], '/app.js': ['app.js', 'text/javascript'], '/guide.js': ['guide.js', 'text/javascript'], '/icon.svg': ['icon.svg', 'image/svg+xml'] };
+const STATIC = { '/app.css': ['app.css', 'text/css'], '/app.js': ['app.js', 'text/javascript'], '/guide.js': ['guide.js', 'text/javascript'], '/guide.css': ['guide.css', 'text/css'], '/icon.svg': ['icon.svg', 'image/svg+xml'] };
 const CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 const MAX_BODY = 5 * 1024 * 1024;
 /** The guide's topics, in reading order: kit\ui\guide\<topic>.html each. */
-export const GUIDE_TOPICS = ['start', 'scan', 'choose', 'byhand', 'dryrun', 'password', 'pack', 'upload', 'restore', 'report', 'faq', 'security'];
+export const GUIDE_TOPICS = TOPIC_IDS;
 
 /** Compares two secrets in constant time. @param {unknown} a @param {string} b */
 export function sameSecret(a, b) {
@@ -391,14 +392,14 @@ export async function startServer(o = {}) {
   });
 
   const guidePage = async (/** @type {string} */ topic) => {
-    const read = async (/** @type {string} */ t) => { try { return await readFile(w.join(UI_DIR, 'guide', `${t}.html`), 'utf8'); } catch { return `<h2>${esc(t)}</h2><p>This page of the guide comes later.</p>`; } };
-    const nav = `<nav class="gnav"><a href="/guide/print">The whole guide, to print</a></nav>`;
+    const head = '<header class="ghead"><strong>Laptop mover</strong> guide</header>';
     if (topic === 'print') {
-      const parts = await Promise.all(GUIDE_TOPICS.map(async (t) => `<section class="gsec" id="g-${t}">${await read(t)}</section>`));
-      return page('Laptop mover guide', `<header class="ghead"><strong>Laptop mover</strong> guide</header><main class="guide"><p class="noprint"><button class="btn" type="button" id="print">Print the guide</button></p>${parts.join('\n')}</main><script src="/guide.js"></script>`);
+      return pageG('Laptop mover guide', `${head}<main class="guide"><p class="noprint"><button class="btn" type="button" id="print">Print the guide</button></p>${await printableBody()}</main><script src="/guide.js"></script>`);
     }
-    return page(`Laptop mover guide: ${topic}`, `<header class="ghead"><strong>Laptop mover</strong> guide</header><main class="guide">${nav}${await read(topic)}</main>`);
+    const title = TOPICS.find((t) => t.id === topic)?.title ?? topic;
+    return pageG(`Laptop mover guide: ${title}`, `${head}<main class="guide">${await readTopic(topic)}${topicNav(topic)}</main>`);
   };
+  const pageG = (/** @type {string} */ title, /** @type {string} */ body) => page(title, body).replace('<link rel="stylesheet" href="/app.css">', '<link rel="stylesheet" href="/app.css"><link rel="stylesheet" href="/guide.css">');
 
   const server = http.createServer(async (req, res) => {
     try {
@@ -428,6 +429,10 @@ export async function startServer(o = {}) {
       if (req.method === 'GET' && Object.hasOwn(STATIC, url.pathname)) {
         const [file, type] = STATIC[/** @type {keyof typeof STATIC} */ (url.pathname)];
         return send(res, 200, type, await readFile(w.join(UI_DIR, file)));
+      }
+      const gi = /^\/guide\/img\/([a-z0-9-]+)\.png$/.exec(url.pathname);
+      if (req.method === 'GET' && gi) {
+        try { return send(res, 200, 'image/png', await readFile(w.join(UI_DIR, 'guide', 'img', `${gi[1]}.png`)), { 'Content-Type': 'image/png' }); } catch { return deny(res, 404, 'Not here.'); }
       }
       const g = /^\/guide\/([a-z0-9-]+)$/.exec(url.pathname);
       if (req.method === 'GET' && g && (g[1] === 'print' || GUIDE_TOPICS.includes(g[1]))) return send(res, 200, 'text/html', await guidePage(g[1]));

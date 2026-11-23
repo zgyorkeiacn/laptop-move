@@ -1,8 +1,21 @@
-<h2>The dry run</h2>
-<p>The dry run writes nothing. It shows the size of the bundle, the number of parts, the time to pack, upload and unpack, and the route of every application.</p>
-<ul>
-<li>The output folder must be on a local drive, not in a OneDrive folder: you upload the files yourself.</li>
-<li>Fix any problem it lists, then run it again.</li>
-<li>Client repositories with local work that is not pushed are listed under "Push first".</li>
-</ul>
-<p class="small">A fuller guide page comes later.</p>
+<h2>Old laptop, step 4: the dry run</h2>
+<p>The dry run shows what packing would do. Nothing is written.</p>
+<ol>
+<li>Give an <em>output folder</em> on a local drive, for example <code>C:\LaptopMove\bundle</code>. It must be new or empty, and not inside a OneDrive folder: you upload the files yourself.</li>
+<li>Leave <em>part size</em> empty for 4 GB parts, or give a size such as <code>500m</code>.</li>
+<li>Tick <em>Carry client repositories whole</em> only if your lead asks for it. They still go only into the separate client part.</li>
+<li>Press <strong>Run the dry run</strong> and wait for <em>finished: ready to pack</em>.</li>
+</ol>
+<figure class="fig"><img src="/guide/img/08-dryrun.png" width="1280" height="800" alt="The dry run result: sizes, parts, time estimates and sections to open"><figcaption>The dry run result. Open each section to see the detail.</figcaption></figure>
+<h3>Read the result</h3>
+<table>
+<tr><th>Part</th><th>What it tells you</th></tr>
+<tr><td>Data part, Kit zip</td><td>Sizes and number of parts. The kit zip holds the mover, the manifest and the signed <code>node.exe</code>.</td></tr>
+<tr><td>Time</td><td>An estimate of packing, upload and unpacking.</td></tr>
+<tr><td>Applications, by route</td><td>How each application will be installed.</td></tr>
+<tr><td>Folders and files, Repositories</td><td>What goes in and what is left out.</td></tr>
+<tr><td>Warnings</td><td>Anything to know, such as a missing client rules file.</td></tr>
+<tr><td>Push first</td><td>Client repositories with local work: push them before you pack.</td></tr>
+<tr><td>Your own steps on the new laptop</td><td>The checks and by-hand items for later.</td></tr>
+</table>
+<div class="card purple">If the dry run lists anything under <em>Push first</em>, do it now, then run the dry run again.</div>

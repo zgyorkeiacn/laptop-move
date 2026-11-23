@@ -18,6 +18,16 @@ You upload the bundle folder yourself (to your Accenture OneDrive only), downloa
 
 The kit itself is in `kit\`: `kit.mjs` is the command line and `kit\lib` the engine. It needs node 20 or newer and 7-Zip 26.03 or newer, installed at `C:\Program Files\7-Zip\7z.exe`.
 
+## The guide
+
+The tutorials, step-by-step instructions, troubleshooting, FAQ and security notes for IT are pages of the interface (the Help links, `/guide/<topic>`) and one printable file:
+
+```text
+node scripts/build-guide.mjs
+```
+
+This writes `docs\guide\laptop-move-guide.html`: one self-contained page (style, pictures and diagrams inline, no outside script or font) in the Accenture livery. The pages are the fragments in `kit\ui\guide\`. The pictures in `kit\ui\guide\img` are taken from the running interface on made-up sample data by `scripts\guide-shots.mjs` (Playwright starts Edge itself, no debugging port).
+
 ## What never goes into the bundle
 
 - **Secret-bearing files are never copied.** This covers `.env*`, `.npmrc`, keys, `.ssh`, cloud credentials, browser login data and similar files. They are listed under "Move by hand".

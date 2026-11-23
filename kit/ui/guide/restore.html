@@ -1,10 +1,28 @@
-<h2>Restore on the new laptop</h2>
+<h2>New laptop: restore</h2>
+<p>Do this on the new laptop, signed in as yourself. You do not need administrator rights for the mover itself, and you must not change the PowerShell execution policy: nothing here needs it.</p>
+<h3>Get the files</h3>
 <ol>
-<li>Download the kit zip and all parts into one new folder, for example <code>C:\move</code>.</li>
-<li>Unzip <code>laptop-move-kit.zip</code> there.</li>
-<li>Open PowerShell in the unzipped kit folder and run <code>.\node.exe kit.mjs ui</code>. Do not change the execution policy.</li>
-<li>In the page, check the bundle first: nothing is written. Then type the password and restore.</li>
+<li>Download the kit zip and all the parts from your Accenture OneDrive into one new folder, for example <code>C:\move</code>.</li>
+<li>Right-click <code>laptop-move-kit.zip</code> and choose <em>Extract All</em>, into the same folder. You get a <code>laptop-move-kit</code> folder with <code>node.exe</code> inside.</li>
+<li>Open PowerShell in that folder (in File Explorer, right-click in the folder and choose <em>Open in Terminal</em>).</li>
+<li>Start the mover:</li>
 </ol>
-<p>Without a page: <code>.\node.exe kit.mjs restore --from C:\move</code>. 7-Zip then asks for the password in the console.</p>
-<p>The restore checks every part's checksum before it unpacks anything, installs applications only when their signature is valid, and keeps a copy of any file it replaces when you ask it to overwrite.</p>
-<p class="small">A fuller guide page comes later.</p>
+<pre>.\node.exe kit.mjs ui</pre>
+<div class="card purple">If company policy blocks the bundled <code>node.exe</code>, install Node from Software Center or with winget, then run <code>node kit.mjs ui</code> instead.</div>
+<h3>Check, then restore</h3>
+<ol>
+<li>The page opens on the restore screen and shows what the bundle is: where and when it was packed, and how many parts.</li>
+<li>Fill <em>Folder with the downloaded parts</em> (<code>C:\move</code>) and <em>Work folder for unpacking</em> (a local drive with room, about 1.3 times the bundle size).</li>
+<li>Press <strong>Check first (nothing is written)</strong>. It checks every part against its checksum and the free space, and shows what the restore would do. Fix anything under <em>Fix these first</em>.</li>
+<li>Tick the options you need: <em>Skip the applications</em>, <em>Skip the client part</em>, or <em>Overwrite files that already exist</em>. By default a file that already exists is kept and listed as a conflict.</li>
+<li>Type the bundle's password and press <strong>Restore now</strong>. Confirm the question.</li>
+</ol>
+<figure class="fig"><img src="/guide/img/12-restore-check.png" width="1280" height="1200" alt="The restore screen after the check: the bundle is complete"><figcaption>The restore screen after <em>Check first</em>. (The sample was checked on the same machine, so the page also notes it is the old laptop.)</figcaption></figure>
+<h3>While it runs</h3>
+<p>The page moves to <em>Restore progress</em>. The mover works in this order: check the checksums, check 7-Zip (installed for you if missing), unpack the parts, install the applications one by one, clone the repositories again and put back their local commits, stashes and files, put the folders and settings back at the same paths, and recreate the links.</p>
+<figure class="fig"><img src="/guide/img/14-restoring.png" width="1280" height="800" alt="The restore progress screen with every step done"><figcaption>Restore progress, finished.</figcaption></figure>
+<p>An application is installed only when its signature is valid and matches the publisher recorded at packing time. If the restore stops, run it again: it continues where it stopped.</p>
+<h3>Without the page</h3>
+<pre>.\node.exe kit.mjs restore --from C:\move --dry-run
+.\node.exe kit.mjs restore --from C:\move</pre>
+<p>7-Zip then asks for the password in the console. To try a restore without touching real places, add <code>--target-root C:\LaptopMove\trial --skip-apps</code>.</p>

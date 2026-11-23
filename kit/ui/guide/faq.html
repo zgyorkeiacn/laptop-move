@@ -1,14 +1,31 @@
 <h2>Questions and answers</h2>
+<h3>Who can use it?</h3>
+<p>Any Accenture employee, on a Windows laptop, with no administrator rights needed for the mover itself.</p>
 <h3>Is my password stored anywhere?</h3>
 <p>No. You type it into the page; it goes to 7-Zip through a pipe and is never stored, logged or put in a command line, a file or an address.</p>
 <h3>Where do I upload the bundle?</h3>
-<p>To your Accenture OneDrive only. Never a client's OneDrive, never a personal drive.</p>
+<p>To your Accenture OneDrive only. Never a client's OneDrive, never a personal drive. The client part also only to your Accenture OneDrive.</p>
 <h3>What about client repositories?</h3>
 <p>With a remote: they stay out, you push first and clone again. Without a remote: a separate encrypted client part for your Accenture OneDrive only.</p>
+<h3>Are my passwords, keys and tokens moved?</h3>
+<p>No. They are listed on the by-hand list for you to set up again. Nothing is read from the Windows secret store.</p>
 <h3>Are printers and Wi-Fi moved?</h3>
 <p>No. Secure print queues come from the company setup on the new laptop: check that one page prints. No Wi-Fi profile or key is packed: check that the office network is there.</p>
 <h3>Does it change my repositories?</h3>
 <p>No. It does not push or fetch, and it reads git without locks.</p>
-<h3>The page says the mover has ended</h3>
-<p>The mover stops when you close its page or press End. Run its ui command again to start a new page.</p>
-<p class="small">A fuller guide page comes later.</p>
+<h3>Does it change anything on the old laptop?</h3>
+<p>It writes only the bundle folder you name, and your selection file if you save it (the old one is kept as a <code>.bak.json</code> copy). Nothing is deleted or changed on the old laptop.</p>
+<h3>Can I try it first?</h3>
+<p>Yes. The dry run changes nothing, and <code>--target-root</code> restores into a trial folder instead of the real places.</p>
+<h3>Can I move only some things?</h3>
+<p>Yes. You choose folders, repositories, applications and settings. Save the selection and load it later.</p>
+<h3>How long does it take?</h3>
+<p>The dry run gives an estimate. Most of the time is waiting for the upload and download.</p>
+<h3>Why are some files left out?</h3>
+<p>Folders that can be rebuilt (<code>node_modules</code>, build output, caches) are skipped to keep the bundle small. Secret-bearing files are left out on purpose.</p>
+<h3>What if the restore stops half way?</h3>
+<p>Run it again. It continues where it stopped, and keeps files that already exist.</p>
+<h3>Can I use another place, such as a USB stick?</h3>
+<p>The guide supports Accenture OneDrive only.</p>
+<h3>Who can I ask?</h3>
+<p>Your IT support, with the report in hand. IT can read the <a href="/guide/security">security page</a>.</p>

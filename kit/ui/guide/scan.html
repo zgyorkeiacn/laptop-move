@@ -1,8 +1,11 @@
-<h2>Scan this laptop</h2>
-<p>The scan lists the folders, repositories, applications and settings it finds. It only reads: it never pushes, fetches or locks a repository, and it shows no remote's address.</p>
-<ul>
-<li>Leave "Where to look" empty to scan your user folder and the system drive, or name the folders to scan.</li>
-<li>Asking winget for the installed applications takes about a minute.</li>
-<li>Folders that look like they hold secrets are marked and go on the by-hand list.</li>
-</ul>
-<p class="small">A fuller guide page comes later.</p>
+<h2>Old laptop, step 1: scan</h2>
+<p>The scan only reads. It lists folders, applications, settings and repositories so you can choose what moves. It never pushes, fetches or locks a repository, and it never shows a remote's address.</p>
+<ol>
+<li>Start the page with <code>node kit.mjs ui</code> (see <a href="/guide/start">Getting started</a>).</li>
+<li>If you saved a selection earlier, <strong>Load</strong> it on the start page: the scan is then optional. Otherwise press <strong>Start: scan this laptop</strong>.</li>
+<li>Leave <em>Where to look</em> empty to scan your user folder and the system drive, or give one folder per line.</li>
+<li>Keep <em>Ask winget which applications are installed</em> ticked to get the application list. It takes a minute.</li>
+<li>Press <strong>Scan now</strong> and wait for the status to read <em>done</em>.</li>
+</ol>
+<figure class="fig"><img src="/guide/img/03-scan.png" width="1280" height="800" alt="The scan screen after a finished scan"><figcaption>The scan screen after it finished (sample data).</figcaption></figure>
+<div class="card purple">You can stop and come back: the page keeps the scan result until you press End.</div>

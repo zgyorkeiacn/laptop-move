@@ -1,0 +1,38 @@
+/* The guide pages and the printable guide. Accenture livery: purple #A100FF, dark purples, black and greys. */
+.guide { max-width: 860px; margin: 0 auto; padding: 24px 20px 48px; font-family: Graphik, Arial, sans-serif; color: #000; line-height: 1.5; }
+.guide h1, .guide h2, .guide h3 { color: #460073; }
+.guide h2 { border-bottom: 3px solid #A100FF; padding-bottom: 4px; }
+.guide a { color: #7500C0; }
+.guide code, .guide pre { background: #F5EFFF; border: 1px solid #E6DCFF; padding: 1px 4px; }
+.guide pre { padding: 8px 10px; overflow-x: auto; }
+.guide table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+.guide th { background: #460073; color: #fff; text-align: left; }
+.guide th, .guide td { border: 1px solid #E6DCFF; padding: 6px 8px; vertical-align: top; }
+.guide figure, .fig { margin: 16px 0; padding: 0; }
+.guide figure img, .guide img { max-width: 100%; height: auto; border: 1px solid #A100FF; display: block; break-inside: avoid; }
+.guide figcaption { font-size: 0.9em; color: #4D4D4D; margin-top: 4px; }
+.guide svg { max-width: 100%; height: auto; break-inside: avoid; }
+.gnav { margin-top: 32px; border-top: 3px solid #A100FF; padding-top: 12px; }
+.gnav ol { columns: 2; padding-left: 22px; }
+.gnav li.cur a { font-weight: 700; color: #460073; }
+.gpager { display: flex; justify-content: space-between; gap: 12px; margin-top: 16px; }
+.gcover { background: #460073; color: #fff; padding: 56px 32px; margin-bottom: 24px; border-left: 14px solid #A100FF; }
+.gcover h1 { color: #fff; font-size: 2.6em; margin: 8px 0; }
+.gkicker { color: #E6DCFF; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin: 0; }
+.gsub { font-size: 1.2em; margin: 0; }
+.gver { color: #E6DCFF; margin-top: 24px; }
+.gtoc ol { padding-left: 22px; }
+.gtoc > ol > li { margin-top: 8px; }
+.gpart { background: #A100FF; color: #fff; padding: 10px 14px; margin: 40px 0 8px; }
+.gsec { margin-top: 24px; break-inside: auto; }
+@media print {
+  .noprint, .ghead { display: none; }
+  .guide { max-width: none; padding: 0; }
+  .gcover { break-after: page; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .gtoc { break-after: page; }
+  .gpart { break-before: page; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .gsec { break-before: page; }
+  .gpart + .gsec { break-before: avoid; }
+  .guide th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .guide a { color: #000; text-decoration: none; }
+}

@@ -1,0 +1,29 @@
+<h2>Troubleshooting</h2>
+<h3>A checksum fails</h3>
+<p>The page says a part is damaged or its SHA-256 does not match. A part was not downloaded completely or was changed.</p>
+<ol><li>Download that part again from OneDrive, and compare its size with the one on OneDrive.</li><li>Run <strong>Check first</strong> again.</li></ol>
+<p>Never unpack a part that failed its check. If it fails again, the file on OneDrive may be incomplete: upload that part again from the old laptop.</p>
+<h3>An application will not install</h3>
+<ul>
+<li><strong>Refused for its signature:</strong> the installer's signature is not valid or does not match the recorded publisher. This is on purpose. Install that application from the vendor's own page or from Software Center.</li>
+<li><strong>Software Center apps:</strong> these are only listed. Open Software Center and install them there.</li>
+<li><strong>Anything else:</strong> run the restore again (it continues where it stopped), or run only the installs with <code>.\node.exe kit.mjs apps</code>. You can also skip the applications and install them later.</li>
+</ul>
+<h3>winget is missing</h3>
+<p>winget comes with App Installer. Open the Microsoft Store (or Software Center), install or update <em>App Installer</em>, open a new PowerShell window, and run <code>winget --version</code>. If it prints a version, run the restore again. Applications with a signed vendor download are installed without winget; the others are listed for you to install by hand.</p>
+<h3>7-Zip says the password is wrong</h3>
+<p>Type it again with care for capital letters and spaces. On the console 7-Zip lets you try three times. The same message can mean a damaged part: check the checksums first. The password cannot be recovered; without it the bundle cannot be opened.</p>
+<h3>Not enough space</h3>
+<ul>
+<li><strong>Old laptop:</strong> choose an output folder on a drive with more room, or untick large folders.</li>
+<li><strong>New laptop:</strong> the check names the drive and the room needed (about 1.3 times the bundle size). Free some space or choose another work folder on a bigger local drive, then check again.</li>
+</ul>
+<h3>The page says the mover has ended</h3>
+<p>The mover stops when you close its page, or press <strong>End the mover</strong>. Run <code>node kit.mjs ui</code> (or <code>.\node.exe kit.mjs ui</code>) again for a new page.</p>
+<h3>The page will not open, or says it needs the link</h3>
+<p>The link works once. Close the old tab and start the mover again, or use <code>--no-open</code> and paste the printed link into your browser.</p>
+<h3>The output folder is refused</h3>
+<p>It is inside a OneDrive folder or a client folder. Pick a plain local folder such as <code>C:\LaptopMove\bundle</code>.</p>
+<h3>A repository did not clone</h3>
+<p>Sign in when Git Credential Manager asks, and check you are on the right network or VPN. Run the restore again; repositories already cloned are kept.</p>
+<div class="card purple">Still stuck? Keep the report and the text of the error and ask your IT support. Never send the password or the bundle.</div>

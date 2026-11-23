@@ -56,7 +56,7 @@ test('the dry run tells the user to check printing and Wi-Fi on the new laptop',
 
 test('the guide pages carry the upload rule and use no dashes the house style forbids', async () => {
   const dir = w.join(KIT, 'ui', 'guide');
-  const all = (await Promise.all((await readdir(dir)).map((f) => readFile(w.join(dir, f), 'utf8')))).join('\n');
+  const all = (await Promise.all((await readdir(dir)).filter((f) => f.endsWith('.html')).map((f) => readFile(w.join(dir, f), 'utf8')))).join('\n');
   assert.match(all, /Accenture OneDrive only/);
   assert.match(all, /never a client's OneDrive/i);
   for (const f of await sources(w.join(KIT, 'ui'))) assert.ok(!/[\u2013\u2014]/.test(await readFile(f, 'utf8')), `${f} holds an en or em dash`);

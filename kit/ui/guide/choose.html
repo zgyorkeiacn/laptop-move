@@ -1,13 +1,13 @@
-<h2>Choose what moves</h2>
-<p>Tick what moves and pick how it moves.</p>
-<table>
-<tr><th>How</th><th>What happens</th></tr>
-<tr><td>copy whole</td><td>The folder is copied into the encrypted bundle as it is.</td></tr>
-<tr><td>clone again + bundle/dirty</td><td>The repository is cloned again on the new laptop; local commits, stashes and uncommitted files travel in the bundle.</td></tr>
-<tr><td>clone again</td><td>Only cloned again: nothing of it is in the bundle.</td></tr>
-<tr><td>by hand</td><td>Not moved: it is on your by-hand list.</td></tr>
-</table>
-<p>A client repository with a remote stays out of the bundle: push its work first, then clone it again. One without a remote goes into the separate client part, for your Accenture OneDrive only.</p>
-<p>Applications show how they are installed again: winget, a vendor download that runs only when its signature is valid, or Software Center.</p>
-<p>Printers and Wi-Fi are not moved: they are checked on the new laptop.</p>
-<p class="small">A fuller guide page comes later.</p>
+<h2>Old laptop, step 2: choose what moves</h2>
+<p>Four screens, one for each kind of thing. On each, tick what moves; the line under the table counts your choices. Every row says what will happen to it on the new laptop.</p>
+<h3>Folders</h3>
+<p>A folder is copied whole to the same path on the new laptop. Folders that hold secrets are never copied: they go on the by-hand list. Sizes come with the dry run.</p>
+<figure class="fig"><img src="/guide/img/04-folders.png" width="1280" height="800" alt="The folders screen with sample folders"><figcaption>The folders screen. The secret folder is marked by hand.</figcaption></figure>
+<h3>Repositories</h3>
+<p>A repository with a remote is cloned again, with your local commits, stashes and uncommitted files put back. A client repository with a remote stays out of the bundle: push it first. One without a remote goes into the separate client part.</p>
+<figure class="fig"><img src="/guide/img/05-repos.png" width="1280" height="800" alt="The repositories screen with a sample repository that has unpushed work"><figcaption>The repositories screen shows the state of each repository.</figcaption></figure>
+<h3>Applications</h3>
+<p>Each application shows how it will be installed: winget, a signed vendor download, or Software Center. Software Center and Company Portal apps are only listed: install them there. A vendor installer on the new laptop is run only when its signature is valid and matches the recorded publisher.</p>
+<h3>Settings</h3>
+<p>Tick the settings you want carried. Two things are not moved at all and are shown on this screen as checks for the new laptop: printers (secure print queues) and Wi-Fi (no profile or key is packed).</p>
+<figure class="fig"><img src="/guide/img/06-settings.png" width="1280" height="800" alt="The settings screen with the printer and Wi-Fi notes"><figcaption>The settings screen, with the two things that are checked instead of moved.</figcaption></figure>

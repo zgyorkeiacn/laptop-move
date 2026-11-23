@@ -1,4 +1,16 @@
-<h2>Packing</h2>
-<p>The mover packs your choice into encrypted 7-Zip parts, writes a checksum for each part and makes the kit zip: the mover, the manifest, a README and the signed node.exe.</p>
-<p>Keep the page open while it packs. Each part shows its own progress. When it ends, open the folder and the pack report from the page.</p>
-<p class="small">A fuller guide page comes later.</p>
+<h2>Old laptop, step 6: pack</h2>
+<ol>
+<li>On the password page press <strong>Pack now</strong>. The page moves to <em>Packing progress</em>.</li>
+<li>Wait. The steps (settings, bundles of local commits, file lists, 7-Zip, checksums, the kit zip) turn <em>done</em> one by one, and each part has its own bar.</li>
+<li>When the green box says <em>Packed</em>, press <strong>Open the folder</strong> to see the bundle.</li>
+</ol>
+<figure class="fig"><img src="/guide/img/10-packing.png" width="1280" height="800" alt="The packing progress screen when packing is done"><figcaption>Packing finished (sample data, so the parts are tiny).</figcaption></figure>
+<h3>What is in the bundle folder</h3>
+<table>
+<tr><th>File</th><th>What it is</th></tr>
+<tr><td><code>data-*.7z.001, .002, ...</code></td><td>The encrypted data parts.</td></tr>
+<tr><td><code>client-*.7z.*</code></td><td>The separate encrypted client part, if there is one. Accenture OneDrive only.</td></tr>
+<tr><td><code>laptop-move-kit.zip</code></td><td>The mover, the manifest, a README and the signed <code>node.exe</code>. Not encrypted: it holds no data.</td></tr>
+<tr><td><code>SHA256SUMS.txt</code>, <code>manifest.json</code></td><td>Checksums and the list of what is inside.</td></tr>
+</table>
+<p>Do not rename, split or delete any of these files. You can close the page now; the mover stops when it is closed.</p>

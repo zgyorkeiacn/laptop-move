@@ -1,0 +1,40 @@
+<h2>Before the move</h2>
+<p>Do these on the old laptop, in this order. Most of the later trouble comes from skipping one of them.</p>
+<h3>1. Push your repositories</h3>
+<p>The mover does not push or fetch, and it never changes a repository. A repository with a remote is cloned again on the new laptop, so what is not on the remote must be pushed first, or it travels as a local bundle.</p>
+<ul>
+<li>For every repository you care about, push the branches you work on.</li>
+<li>Unpushed commits and stashes still travel in the bundle as a safety net, but a pushed branch is the safe copy.</li>
+</ul>
+<h3>2. Client repositories and the client part rule</h3>
+<p>Client data is never mixed with the rest, and never leaves Accenture's own space.</p>
+<ul>
+<li><strong>A client repository with a remote</strong> stays out of the bundle. The dry run lists it under <em>Push first</em>. Push its work, then clone it again on the new laptop.</li>
+<li><strong>A client repository without a remote, or a client folder,</strong> goes into a separate encrypted <em>client part</em>, <code>client-*.7z.*</code>. Upload that part to your <strong>Accenture OneDrive only</strong>.</li>
+<li><strong>Never</strong> put any part on a client's OneDrive (its folder name usually carries the client's name) or on a personal drive. The mover refuses to write its output into a client's folder or OneDrive.</li>
+</ul>
+<p>Which folders and remotes count as client data is set in a small local file, <code>laptop-move-client.json</code>, next to your selection file. Ask your project lead if you are unsure; without the file the mover stops, unless you confirm that nothing on this laptop is client data.</p>
+<div class="card warn"><strong>Client rules file.</strong> The mover itself names no client. The file lists client folders and remote address patterns, and the folders where output must never be written.</div>
+<h3>3. Know your secrets: the by-hand list</h3>
+<p>These are never copied. Make your own list now, and set each up again on the new laptop yourself, the safe way for what it is:</p>
+<table>
+<tr><th>Item</th><th>What to do on the new laptop</th></tr>
+<tr><td>SSH keys (<code>.ssh</code>)</td><td>Create new keys, or restore them from your approved secret store, and register the new public key again.</td></tr>
+<tr><td><code>.env</code> files and tokens</td><td>Create the values again from their source. Do not email or upload them.</td></tr>
+<tr><td><code>.npmrc</code>, <code>.pypirc</code>, Maven <code>settings.xml</code></td><td>Sign in to the registry again and create a new token.</td></tr>
+<tr><td>Cloud credentials (AWS, Azure, kube)</td><td>Sign in again with the company tool.</td></tr>
+<tr><td>Browser logins</td><td>Sign in to Edge and Chrome with your account and let them sync. Profiles are never copied.</td></tr>
+<tr><td>Git credentials</td><td>Git Credential Manager asks you to sign in the first time you clone from each host.</td></tr>
+<tr><td>Certificates and password vault files</td><td>Import them again from where you keep them.</td></tr>
+<tr><td>Printers</td><td>Check that your secure print queue is there and that one page prints.</td></tr>
+<tr><td>Wi-Fi</td><td>The office network usually comes with the company image. Check it, and join other networks by hand.</td></tr>
+</table>
+<p>The page builds this list for you from your selection and from the files the dry run finds. You tick each item when it is done.</p>
+<h3>4. Time and space</h3>
+<ul>
+<li><strong>Space on the old laptop:</strong> a local folder (not a OneDrive folder) with room for about the size of your chosen data, a little more to be safe. The dry run shows the exact size.</li>
+<li><strong>Space on the new laptop:</strong> room for the downloaded bundle, plus a work folder of about 1.3 times the bundle size on a local drive. The restore checks this and says so before it starts.</li>
+<li><strong>Time:</strong> the dry run estimates packing, upload (at 10 MB per second) and unpacking. For a few GB it is minutes; for tens of GB expect a long lunch. Plug both laptops in.</li>
+<li><strong>Tools:</strong> 7-Zip 26.03 or newer (installed at <code>C:\Program Files\7-Zip\7z.exe</code>). On the new laptop the restore installs it for you if it is missing.</li>
+</ul>
+<div class="card purple"><strong>Tip.</strong> Close big programs before packing, and do not work in the folders while they are being packed.</div>

@@ -1,8 +1,27 @@
-<h2>The report</h2>
-<p>When the restore ends the page shows what was done, what is left for you by hand and what failed, section by section. Open the full report as HTML, or print it.</p>
+<h2>Reading the report</h2>
+<p>When the restore ends, the <em>Final report</em> screen shows the result, and <strong>Open the report as HTML</strong> opens the same report as a page you can keep or print.</p>
+<figure class="fig"><img src="/guide/img/13-report.png" width="1280" height="1200" alt="The final report: parts, repositories, folders, warnings and your own steps"><figcaption>The final report on sample data.</figcaption></figure>
+<h3>The three counters</h3>
+<table>
+<tr><th>Tag</th><th>Meaning</th><th>What you do</th></tr>
+<tr><td><span class="tag ok">done</span></td><td>Restored and checked.</td><td>Nothing.</td></tr>
+<tr><td><span class="tag warn">to do by hand</span></td><td>Skipped, not moved on purpose, or needs you.</td><td>Do it from <em>Your own steps now</em>.</td></tr>
+<tr><td><span class="tag bad">failed</span></td><td>A part is damaged or missing, an app was refused, or a conflict kept your file.</td><td>See <a href="/guide/trouble">Troubleshooting</a>.</td></tr>
+</table>
+<h3>The sections</h3>
 <ul>
-<li>Done: nothing more to do.</li>
-<li>To do by hand: follow the detail, then tick it off on the by-hand list.</li>
-<li>Failed: read the detail. A part that failed its checksum is downloaded again; an app whose signature did not match is installed from the vendor's own page.</li>
+<li><strong>Parts:</strong> each part with its size and whether its SHA-256 matched.</li>
+<li><strong>Applications:</strong> installed, already there, listed for Software Center, or refused.</li>
+<li><strong>Repositories:</strong> cloned, whether the local-commit bundle was fetched, and what was put back.</li>
+<li><strong>Folders and settings:</strong> where each went, how many files moved, how many were replaced.</li>
+<li><strong>Files that already existed:</strong> kept as they were. The old laptop's copy stays in the work folder; run the restore again with <em>Overwrite</em> to replace them (each replaced file is backed up first).</li>
+<li><strong>Warnings:</strong> things to know, such as a missing client rules file.</li>
+<li><strong>Your own steps now:</strong> the by-hand list, the printer check, the Wi-Fi check, signing in to Edge and Chrome, and Git signing in on first clone.</li>
 </ul>
-<p class="small">A fuller guide page comes later.</p>
+<h3>After the report</h3>
+<ol>
+<li>Work through <em>Your own steps now</em> and tick off your by-hand list.</li>
+<li>Clone the client repositories you pushed before the move.</li>
+<li>Print one page on the secure printer and open one repository to be sure.</li>
+<li>Delete the bundle from OneDrive and the work folder from the new laptop when you are satisfied. Keep the password until then.</li>
+</ol>
