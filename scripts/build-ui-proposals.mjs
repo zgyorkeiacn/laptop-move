@@ -132,7 +132,7 @@ ${['Scan', 'Choose', 'Pack', 'Upload', 'Restore'].map((t, i) => `<g><rect x="${8
 <ol><li><strong>Scan.</strong> The mover lists folders, applications, settings and repositories. Nothing is changed.</li>
 <li><strong>Choose.</strong> Tick what moves. Client repositories with a remote stay out.</li>
 <li><strong>Pack.</strong> Type a password when 7-Zip asks. Keep it safe: it is not stored.</li>
-<li><strong>Upload.</strong> Put the bundle on Accenture OneDrive or Google Drive yourself.</li>
+<li><strong>Upload.</strong> Put the bundle on your Accenture OneDrive yourself.</li>
 <li><strong>Restore.</strong> On the new laptop download the bundle and run one command.</li></ol>
 <div class="card purple"><strong>Tip:</strong> run the dry run first. It shows size, parts, time and the route of every app.</div>${sampleNote}`;
 
@@ -147,7 +147,7 @@ const sInstr = () => `<h3>Detailed instructions: restore on the new laptop</h3>
 <details><summary>If an app install is refused</summary>The signature did not match the recorded publisher. Install that app from the vendor's own page.</details>${sampleNote}`;
 
 const faq = () => `<details><summary>Is my password stored anywhere?</summary>No. 7-Zip asks for it at its own prompt. The mover never sees, stores or logs it.</details>
-<details><summary>Can I use OneDrive?</summary>Accenture OneDrive or Google Drive, yes. Never a client's OneDrive.</details>
+<details><summary>Where do I upload the bundle?</summary>To your Accenture OneDrive only. Never a client's OneDrive.</details>
 <details><summary>What about client repositories?</summary>With a remote: they stay out, you push first and clone again. Without a remote: a separate encrypted client part for Accenture OneDrive only.</details>
 <details><summary>Does it change my repositories?</summary>No. It does not push or fetch and reads git without locks.</details>`;
 const sSecurity = () => `<h3>Security notes for IT</h3>
@@ -214,7 +214,7 @@ const wrapEnd = (page) => `${questions(page)}${nav}</body></html>`;
     ['Old laptop', 'Choose', 'a2', sChoose(), 'Tick what moves. Large folders show their size. Client repositories with a remote stay out; you push them first.'],
     ['Old laptop', 'Dry run', 'a3', sDry() + sByHand(), 'The dry run shows size, parts, time and the route of each app. Read the by-hand list: those files are never moved.'],
     ['Old laptop', 'Pack', 'a4', sPack(), 'Type a password when 7-Zip asks. Write it down somewhere safe, it is not stored. Do not close the window.'],
-    ['Old laptop', 'Upload', 'a5', sUpload(), 'Upload the bundle yourself: Accenture OneDrive or Google Drive. The client part goes to Accenture OneDrive only.'],
+    ['Old laptop', 'Upload', 'a5', sUpload(), 'Upload the bundle yourself: your Accenture OneDrive only. The client part goes to Accenture OneDrive only.'],
     ['New laptop', 'Download', 'a6', sInstr(), 'Download every file of the bundle into one folder, then follow the numbered instructions.'],
     ['New laptop', 'Restore', 'a7', sRestore(), 'Leave it running. Apps install one by one, only with a valid signature.'],
     ['New laptop', 'Check', 'a8', sReport(), 'Read the report, finish the by-hand list, clone the client repositories after pushing them.'],
@@ -237,8 +237,8 @@ function sScanSimple() {
 }
 function sUpload() {
   return `<h3>Upload the bundle yourself</h3><table><tr><th>File</th><th class="num">Size</th><th>Upload to</th></tr>
-<tr><td>laptop-move-kit.zip</td><td class="num">42 MB</td><td>Accenture OneDrive or Google Drive</td></tr>
-<tr><td>data-1.7z.001 to 003 and checksums</td><td class="num">9.6 GB</td><td>Accenture OneDrive or Google Drive</td></tr>
+<tr><td>laptop-move-kit.zip</td><td class="num">42 MB</td><td>Accenture OneDrive</td></tr>
+<tr><td>data-1.7z.001 to 003 and checksums</td><td class="num">9.6 GB</td><td>Accenture OneDrive</td></tr>
 <tr><td>client-1.7z.001</td><td class="num">0.4 GB</td><td><strong>Accenture OneDrive only</strong></td></tr></table>
 <div class="card purple" style="margin-top:12px"><strong>Never</strong> upload to a client's OneDrive. The mover refuses an output folder inside client folders.</div>
 <p><button class="btn sm" type="button">Open the bundle folder</button></p>${sampleNote}`;
@@ -300,7 +300,7 @@ function sUpload() {
 {
   const diag = (a, b, c) => `<svg viewBox="0 0 420 90" width="100%" role="img" aria-label="${a} to ${b} to ${c}"><rect x="6" y="20" width="110" height="50" fill="#A100FF"/><text x="61" y="50" fill="#fff" font-family="Arial" font-size="14" font-weight="700" text-anchor="middle">${a}</text><path d="M120 45h60" stroke="#000" stroke-width="2" stroke-dasharray="5 4"/><path d="M174 38l8 7-8 7" fill="none" stroke="#000" stroke-width="2"/><rect x="186" y="20" width="110" height="50" fill="#fff" stroke="#000" stroke-width="2"/><text x="241" y="50" font-family="Arial" font-size="14" font-weight="700" text-anchor="middle">${b}</text><path d="M300 45h60" stroke="#000" stroke-width="2" stroke-dasharray="5 4"/><rect x="304" y="20" width="0" height="0"/><rect x="364" y="20" width="52" height="50" fill="#460073"/><text x="390" y="50" fill="#fff" font-family="Arial" font-size="12" font-weight="700" text-anchor="middle">${c}</text></svg>`;
   const phases = [
-    ['Before', 'The day before', `<p>Prepare. Push client repositories, close big programs, find a place to write the password.</p><ul><li>Push every client repository: the dry run lists what is not pushed.</li><li>Check free disk space for the bundle.</li><li>Decide where you will upload: Accenture OneDrive or Google Drive.</li></ul>${diag('Repos', 'Remote', 'Push')}<p><button class="btn sm" type="button">Check unpushed work</button></p>`],
+    ['Before', 'The day before', `<p>Prepare. Push client repositories, close big programs, find a place to write the password.</p><ul><li>Push every client repository: the dry run lists what is not pushed.</li><li>Check free disk space for the bundle.</li><li>Make sure you can reach your Accenture OneDrive (the only place the bundle goes).</li></ul>${diag('Repos', 'Remote', 'Push')}<p><button class="btn sm" type="button">Check unpushed work</button></p>`],
     ['Old laptop', 'Scan, choose, pack', `${sChoose()}${sDry()}${sPack()}`],
     ['In transit', 'Upload and wait', `<p>The bundle moves through the cloud. You do the upload; the tool does not.</p>${diag('Old laptop', 'Cloud drive', 'New')}${sUpload()}${sByHand()}`],
     ['New laptop', 'Download and restore', `${sInstr()}${sRestore()}`],

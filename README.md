@@ -5,7 +5,7 @@ Moves a laptop's local work to a new laptop. On the old laptop, `pack` reads the
 - encrypted 7-Zip parts (a few GB each), each with a SHA-256;
 - a plain `laptop-move-kit.zip` holding the kit, the manifest, this README and the official signed `node.exe`.
 
-You upload the bundle folder yourself (OneDrive, Google Drive), download it on the new laptop and run one command. `restore` then:
+You upload the bundle folder yourself (to your Accenture OneDrive only), download it on the new laptop and run one command. `restore` then:
 
 1. checks the parts;
 2. installs 7-Zip if it is missing;

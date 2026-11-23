@@ -83,7 +83,7 @@ details{border:1px solid var(--g4);padding:8px 12px;margin:0 0 8px}summary{curso
 <div class="grid2">
 <div class="card purple"><h3>1 Scan and choose</h3><p>On the old laptop. Nothing is changed.</p><button class="btn sm" type="button" data-go="scan">Open</button></div>
 <div class="card purple"><h3>2 Dry run and pack</h3><p>See size and time, then pack with a password.</p><button class="btn sm" type="button" data-go="dryrun">Open</button></div>
-<div class="card purple"><h3>3 Upload and download</h3><p>You put the bundle on Accenture OneDrive or Google Drive.</p><button class="btn sm" type="button" data-go="upload">Open</button></div>
+<div class="card purple"><h3>3 Upload and download</h3><p>You put the bundle on your Accenture OneDrive.</p><button class="btn sm" type="button" data-go="upload">Open</button></div>
 <div class="card purple"><h3>4 Restore and check</h3><p>On the new laptop, one command, then a report.</p><button class="btn sm" type="button" data-go="restore">Open</button></div>
 </div>
 <p>New here? <button class="btn ghost sm" type="button" data-go="tutorial">Read the 5-step tutorial</button> <button class="btn ghost sm" type="button" data-go="instructions">Detailed instructions</button></p>
@@ -217,10 +217,9 @@ details{border:1px solid var(--g4);padding:8px 12px;margin:0 0 8px}summary{curso
 <article data-screen="upload" data-title="Upload step" class="hide">
 <section class="screen"><div class="sbar"><span>Laptop mover</span><span>Upload</span><span class="mockbadge">Mock, not the working tool</span></div><div class="sbody">
 <h3>Upload the bundle</h3>
-<p>The tool does not upload. You put the files where you can reach them from the new laptop. Pick the place; the page shows the matching steps.</p>
+<p>The tool does not upload. You put the files on your Accenture OneDrive, where you can reach them from the new laptop.</p>
 <h4>Data parts and kit zip</h4>
-<label class="choice"><input type="radio" name="up1" value="Accenture OneDrive" checked> Accenture OneDrive</label>
-<label class="choice"><input type="radio" name="up1" value="Google Drive"> Google Drive</label>
+<label class="choice"><input type="radio" name="up1" value="Accenture OneDrive" checked> Accenture OneDrive only</label>
 <h4>Client part</h4>
 <label class="choice"><input type="radio" name="up2" value="Accenture OneDrive" checked> Accenture OneDrive only</label>
 <p class="card purple" id="upnote">Open OneDrive in your browser, create a folder named move, drag the .7z parts and the kit zip in, and wait until each file shows a green tick.</p>
@@ -286,7 +285,7 @@ details{border:1px solid var(--g4);padding:8px 12px;margin:0 0 8px}summary{curso
 <ol><li><strong>Scan.</strong> The mover lists folders, applications, settings and repositories. Nothing is changed.</li>
 <li><strong>Choose.</strong> Tick what moves. Client repositories with a remote stay out.</li>
 <li><strong>Pack.</strong> Type a password when 7-Zip asks. Keep it safe: it is not stored.</li>
-<li><strong>Upload.</strong> Put the bundle on Accenture OneDrive or Google Drive yourself.</li>
+<li><strong>Upload.</strong> Put the bundle on your Accenture OneDrive yourself.</li>
 <li><strong>Restore.</strong> On the new laptop download the bundle and run one command.</li></ol>
 <div class="card purple"><strong>Tip:</strong> run the dry run first. It shows size, parts, time and the route of every app.</div>
 <div class="sample">In the working tool each step has a page like this with real screenshots next to the text, and the whole guide prints as one HTML file.</div>
@@ -315,7 +314,7 @@ details{border:1px solid var(--g4);padding:8px 12px;margin:0 0 8px}summary{curso
 <ul><li><a href="#" data-go="tutorial">The 5-step tutorial</a></li><li><a href="#" data-go="instructions">Detailed instructions for the new laptop</a></li><li><a href="#" data-go="byhand">The by-hand list of secrets</a></li><li><a href="#" data-link="Ask IT">Ask IT for help (a link to the service desk in the working tool)</a> <span class="rec" id="linksay" role="status"></span></li></ul></div>
 <h3>FAQ</h3>
 <details><summary>Is my password stored anywhere?</summary>No. 7-Zip asks for it at its own prompt. The mover never sees, stores or logs it.</details>
-<details><summary>Can I use OneDrive?</summary>Accenture OneDrive or Google Drive, yes. Never a client's OneDrive.</details>
+<details><summary>Where do I upload the bundle?</summary>To your Accenture OneDrive only. Never a client's OneDrive.</details>
 <details><summary>What about client repositories?</summary>With a remote: they stay out, you push first and clone again. Without a remote: a separate encrypted client part for Accenture OneDrive only.</details>
 <details><summary>Does it change my repositories?</summary>No. It does not push or fetch and reads git without locks.</details>
 <section class="screen"><div class="sbar"><span>Laptop mover</span><span>Security</span><span class="mockbadge">Mock, not the working tool</span></div><div class="sbody">
@@ -371,7 +370,6 @@ document.addEventListener('click',function(e){var b=e.target.closest('[data-go]'
 var l=e.target.closest('[data-link]');if(l){e.preventDefault();document.getElementById('linksay').textContent='Mock: this link opens '+l.getAttribute('data-link')+' in the working tool.';return;}
 var s=e.target.closest('[data-say]');if(s){document.getElementById(s.getAttribute('data-say')).textContent='Mock: this button does nothing here.';}});
 document.addEventListener('change',function(e){if(e.target.matches('input[type=checkbox][data-size]'))sums();
-if(e.target.name==='up1'){document.getElementById('upnote').textContent=e.target.value==='Google Drive'?'Open Google Drive in your browser, create a folder named move, drag the .7z parts and the kit zip in, and wait until each file shows as uploaded. The client part still goes to Accenture OneDrive only.':'Open OneDrive in your browser, create a folder named move, drag the .7z parts and the kit zip in, and wait until each file shows a green tick.';}});
 document.getElementById('pwsim').onclick=function(){document.getElementById('pwstat').textContent='Mock: the real 7-Zip window takes the password, this page never does.';};
 sums();
 /* feedback */
