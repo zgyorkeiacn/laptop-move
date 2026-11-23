@@ -1,6 +1,8 @@
 // Reads the selection file the form saves (laptop-move-selection.json). The format is the form's own and is kept as is:
 // { savedAt, folders: [{ path, mode }], applications: [{ name, wingetId, source }], settings: [{ app, how }], questions, comments }.
-import { readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { copyFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { norm, isInside } from './paths.mjs';
 
 /** @typedef {'copy'|'bundle'|'clone'|'byhand'|'skip'|'unknown'} Mode */
@@ -97,6 +99,70 @@ export function resolveNesting(list) {
 
 /** @param {string} file */
 export async function readSelection(file) {
+  return parseSelection(await readSelectionRaw(file));
+}
+
+/** The selection file as the form wrote it (checked, not parsed into entries). @param {string} file */
+export async function readSelectionRaw(file) {
   const text = await readFile(file, 'utf8');
-  return parseSelection(JSON.parse(text.replace(/^﻿/, '')));
+  const json = JSON.parse(text.replace(/^﻿/, ''));
+  parseSelection(json);
+  return json;
+}
+
+/**
+ * The selection in the form's own format and key order (savedAt, folders, applications, settings, questions, comments,
+ * commentLabels), so the form and the kit both read it. Fields the kit does not know are kept after these.
+ * @param {any} json
+ * @param {{savedAt?: string}} [o]
+ */
+export function normalizeSelection(json, o = {}) {
+  parseSelection(json);
+  const str = (/** @type {unknown} */ v) => (v == null ? '' : String(v));
+  /** @type {Record<string, any>} */
+  const out = {
+    savedAt: o.savedAt ?? new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+    folders: json.folders.filter((/** @type {any} */ f) => f && typeof f.path === 'string' && f.path.trim())
+      .map((/** @type {any} */ f) => ({ path: f.path, mode: str(f.mode) })),
+    applications: (Array.isArray(json.applications) ? json.applications : []).filter((/** @type {any} */ a) => a && typeof a.name === 'string')
+      .map((/** @type {any} */ a) => ({ name: a.name, wingetId: str(a.wingetId), source: str(a.source) })),
+    settings: (Array.isArray(json.settings) ? json.settings : []).filter((/** @type {any} */ s) => s && typeof s.app === 'string')
+      .map((/** @type {any} */ s) => ({ app: s.app, how: str(s.how) })),
+    questions: Array.isArray(json.questions) ? json.questions : [],
+    comments: json.comments && typeof json.comments === 'object' ? json.comments : {},
+    commentLabels: json.commentLabels && typeof json.commentLabels === 'object' ? json.commentLabels : {},
+  };
+  for (const [k, v] of Object.entries(json)) if (!(k in out)) out[k] = v;
+  return out;
+}
+
+/** The selection file's text: the form saves it with one space of indent. @param {any} json */
+export function selectionText(json) {
+  return `${JSON.stringify(json, null, 1)}\n`;
+}
+
+/**
+ * Saves a selection in the form's format. An existing file is first copied to <name>.<date>T<hhmm>.bak.json next to
+ * it; the new text is written to a temporary file and then renamed over the old one.
+ * @param {string} file
+ * @param {any} json
+ * @param {{savedAt?: string}} [o]
+ * @returns {Promise<{file: string, backup: string|null, json: any}>}
+ */
+export async function saveSelection(file, json, o = {}) {
+  const data = normalizeSelection(json, o);
+  const dir = path.win32.dirname(file);
+  await mkdir(dir, { recursive: true });
+  let backup = null;
+  if (existsSync(file)) {
+    const d = new Date();
+    const p2 = (/** @type {number} */ n) => String(n).padStart(2, '0');
+    const tag = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}T${p2(d.getHours())}${p2(d.getMinutes())}${p2(d.getSeconds())}`;
+    backup = path.win32.join(dir, `${path.win32.basename(file).replace(/\.json$/i, '')}.${tag}.bak.json`);
+    await copyFile(file, backup);
+  }
+  const tmp = `${file}.${process.pid}.tmp`;
+  await writeFile(tmp, selectionText(data), 'utf8');
+  await rename(tmp, file);
+  return { file, backup, json: data };
 }

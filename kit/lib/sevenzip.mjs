@@ -1,4 +1,5 @@
 // 7-Zip: only the installed one in Program Files, version 26.03 or newer, checked before every use.
+import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { run } from './util.mjs';
@@ -61,6 +62,71 @@ export function addArgs(o) {
  */
 export function extractArgs(firstPart, outDir) {
   return ['x', firstPart, `-o${outDir}`, '-aoa', '-bb0', '-bsp1'];
+}
+
+/**
+ * Runs 7-Zip with its output piped (no console needed), for the user interface. An encrypted archive's password goes
+ * to 7-Zip's own prompt through standard input: it is never an argument, never in a file and never in the returned
+ * output (scrubbed if 7-Zip ever echoed it). Arguments that carry a password (-pSECRET) are refused.
+ * @param {string} exe
+ * @param {string[]} args
+ * @param {{cwd?: string, password?: string, confirm?: boolean, onPercent?: (pct: number) => void, timeout?: number}} [o]
+ * @returns {Promise<{code: number, out: string}>}
+ */
+export function run7z(exe, args, o = {}) {
+  if (args.some((a) => /^-p./.test(String(a)))) return Promise.reject(new Error('run7z: a password is never passed as an argument'));
+  const pw = o.password ?? '';
+  if (/[\r\n]/.test(pw)) return Promise.reject(new Error('run7z: the password cannot hold a line break'));
+  return new Promise((resolve, reject) => {
+    const child = spawn(exe, args, { cwd: o.cwd, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+    let tail = '';
+    let last = -1;
+    const keep = (/** @type {Buffer} */ chunk) => {
+      const s = chunk.toString('utf8');
+      tail = (tail + s).slice(-16384);
+      if (o.onPercent) {
+        const all = [...s.replace(/\x08/g, ' ').matchAll(/(\d{1,3})%/g)];
+        const p = all.length ? Number(all[all.length - 1][1]) : -1;
+        if (p >= 0 && p <= 100 && p !== last) { last = p; o.onPercent(p); }
+      }
+    };
+    child.stdout.on('data', keep);
+    child.stderr.on('data', keep);
+    let timer = null;
+    if (o.timeout) timer = setTimeout(() => child.kill(), o.timeout);
+    child.on('error', (e) => { if (timer) clearTimeout(timer); reject(e); });
+    child.on('close', (code) => {
+      if (timer) clearTimeout(timer);
+      let out = tail.replace(/\x08+/g, '');
+      if (pw) out = out.split(pw).join('***');
+      resolve({ code: code ?? 255, out: out.slice(-8192) });
+    });
+    child.stdin.on('error', () => {});
+    // 7-Zip reads the password once from a pipe; a second line (the confirmation a console would ask for) is harmless.
+    child.stdin.end(pw ? (o.confirm ? `${pw}\n${pw}\n` : `${pw}\n`) : '');
+  });
+}
+
+/** The shortest password the user interface takes. */
+export const MIN_PASSWORD = 12;
+
+/**
+ * Why a typed password is not taken, or null. Printable ASCII only, so the same keys give the same bytes on the new
+ * laptop whatever its keyboard layout or console code page; at least MIN_PASSWORD characters; no line break (the
+ * pipe would cut it). The text never contains the password.
+ * @param {unknown} pw
+ */
+export function passwordProblem(pw) {
+  if (typeof pw !== 'string' || !pw.length) return 'type a password';
+  if (/[\r\n]/.test(pw)) return 'the password may not hold a line break';
+  if (!/^[\x20-\x7E]+$/.test(pw)) return 'use only letters, digits, spaces and the signs of a US keyboard (no accented letters)';
+  if (pw.length < MIN_PASSWORD) return `use at least ${MIN_PASSWORD} characters (a passphrase of three or four words is easy to type)`;
+  return null;
+}
+
+/** The last few non-empty lines of 7-Zip's output, for an error message. @param {string} out @param {number} [n] */
+export function lastLines(out, n = 4) {
+  return String(out).split(/\r?\n|\r/).map((l) => l.trim()).filter((l) => l && !/^\d{1,3}%/.test(l)).slice(-n).join(' | ');
 }
 
 /** Meaning of 7-Zip's exit code. @param {number} code */

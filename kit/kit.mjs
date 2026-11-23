@@ -4,6 +4,7 @@
 //   node kit.mjs pack     --selection <file> --out <folder>             old laptop: writes the parts and the kit zip
 //   .\node.exe kit.mjs restore --from <folder> [--dry-run]               new laptop: everything back in place
 //   .\node.exe kit.mjs apps [--dry-run]                                  new laptop: only the apps, one by one
+//   node kit.mjs ui                                                      the guided page on 127.0.0.1 (either laptop)
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dryRun, pack, restore, restoreDryRun, appsOnly } from './lib/engine.mjs';
@@ -13,6 +14,11 @@ const w = path.win32;
 const kitDir = w.dirname(fileURLToPath(import.meta.url));
 
 const HELP = `Laptop move kit
+
+The guided page (either laptop; it opens in your browser, on this computer only):
+  node kit.mjs ui [--selection <file>] [--scan-root "<folder>;<folder>"] [--no-open]
+  .\\node.exe kit.mjs ui                      on the new laptop, in the unpacked kit folder
+  It ends when you close the page, press End in it, or press Ctrl+C here.
 
 Old laptop:
   node kit.mjs dry-run --selection <file> [--out <folder>] [--all] [--fast --inventory <file>]
@@ -29,7 +35,7 @@ Pack options:
   --out <folder>         a new, empty local folder (default C:\\LaptopMove\\bundle-<time>)
   --volume <size>        part size, for example 4g or 500m (default 4g)
   --client-data          carry client repositories whole (still only in the encrypted client part)
-  --allow-onedrive       allow an output folder synced by your own company OneDrive
+  --allow-onedrive       allow an output folder synced by your own Accenture OneDrive
   --no-encrypt           trial with test data only; refused when there is client data
   --fast                 dry run without walking the folders (rough sizes)
   --inventory <file>     sizes for --fast
@@ -46,10 +52,15 @@ Restore options:
   --npm-ci <all|folders> run npm ci --install-links in the restored repositories
   --no-open              do not open the report
   --dry-run              what it would do, nothing changed
+
+Page options (ui):
+  --selection, --rules, --no-client-rules, --no-app-lookup, --from, --work as above
+  --scan-root <folders>  where the scan looks, ;-separated (default: your user folder and the system drive)
+  --no-open              print the page's link instead of opening the browser
 `;
 
 /** Options that take a value. */
-const VALUED = new Set(['selection', 'rules', 'out', 'volume', 'inventory', 'from', 'work', 'target-root', 'npm-ci']);
+const VALUED = new Set(['selection', 'rules', 'out', 'volume', 'inventory', 'from', 'work', 'target-root', 'npm-ci', 'scan-root']);
 const FLAGS = new Set(['client-data', 'allow-onedrive', 'no-client-rules', 'no-encrypt', 'fast', 'no-app-lookup', 'all', 'overwrite', 'skip-apps', 'skip-client', 'no-open', 'dry-run', 'help']);
 
 /**
@@ -150,7 +161,7 @@ export async function main(argv) {
     const o = packOptions(opts);
     if (!o.out) throw new Error('name the output folder: --out <new local folder>, for example --out C:\\LaptopMove\\bundle');
     const r = await pack(o, emit);
-    const files = r.manifest.archives.flatMap((/** @type {any} */ a) => a.parts.map((/** @type {any} */ p) => `  ${p.file}  ${fmtBytes(p.size)}${a.group === 'client' ? '  (client part: company OneDrive only)' : ''}`));
+    const files = r.manifest.archives.flatMap((/** @type {any} */ a) => a.parts.map((/** @type {any} */ p) => `  ${p.file}  ${fmtBytes(p.size)}${a.group === 'client' ? '  (client part: Accenture OneDrive only)' : ''}`));
     console.log(`\nUpload every file of ${r.out}:\n${files.join('\n')}\n  laptop-move-kit.zip\n  SHA256SUMS.txt\n  manifest.json\n\nPack report: ${r.report}`);
     return 0;
   }
@@ -170,7 +181,33 @@ export async function main(argv) {
     if (o.dryRun) for (const a of r.results) console.log(`  ${a.status.padEnd(14)} ${a.name}  ${a.how}${a.detail ? ` ${a.detail}` : ''}`);
     return 0;
   }
-  throw new Error(`unknown command ${command} (dry-run, pack, restore, apps, help)`);
+  if (command === 'ui') {
+    const { startServer } = await import('./ui/server.mjs');
+    const roots = opts['scan-root'] ? String(opts['scan-root']).split(';').map((s) => s.trim()).filter(Boolean).map((p) => w.resolve(p)) : undefined;
+    const s = await startServer({
+      kitDir,
+      selection: opts.selection ? w.resolve(String(opts.selection)) : undefined,
+      rulesFile: opts.rules ? w.resolve(String(opts.rules)) : undefined,
+      noClientRules: !!opts['no-client-rules'],
+      scanRoots: roots,
+      appLookup: !opts['no-app-lookup'],
+      from: opts.from ? w.resolve(String(opts.from)) : undefined,
+      work: opts.work ? w.resolve(String(opts.work)) : undefined,
+      open: !opts['no-open'],
+      log: (t) => console.log(t),
+    });
+    console.log(opts['no-open']
+      ? `Open this link in your browser (it works once, on this computer only):\n  ${s.url}`
+      : `The page is open in your browser (on this computer only, port ${s.port}). If it did not open, open this link once:\n  ${s.url}`);
+    console.log('Close the page, press End in it, or press Ctrl+C here to end the mover.');
+    const stop = () => { console.log('\nEnding the mover.'); void s.close(); };
+    process.once('SIGINT', stop);
+    await s.closed;
+    process.off('SIGINT', stop);
+    console.log('The mover has ended.');
+    return 0;
+  }
+  throw new Error(`unknown command ${command} (dry-run, pack, restore, apps, ui, help)`);
 }
 
 const invoked = process.argv[1] && w.resolve(process.argv[1]).toLowerCase() === fileURLToPath(import.meta.url).toLowerCase();

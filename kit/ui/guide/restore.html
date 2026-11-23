@@ -1,0 +1,10 @@
+<h2>Restore on the new laptop</h2>
+<ol>
+<li>Download the kit zip and all parts into one new folder, for example <code>C:\move</code>.</li>
+<li>Unzip <code>laptop-move-kit.zip</code> there.</li>
+<li>Open PowerShell in the unzipped kit folder and run <code>.\node.exe kit.mjs ui</code>. Do not change the execution policy.</li>
+<li>In the page, check the bundle first: nothing is written. Then type the password and restore.</li>
+</ol>
+<p>Without a page: <code>.\node.exe kit.mjs restore --from C:\move</code>. 7-Zip then asks for the password in the console.</p>
+<p>The restore checks every part's checksum before it unpacks anything, installs applications only when their signature is valid, and keeps a copy of any file it replaces when you ask it to overwrite.</p>
+<p class="small">A fuller guide page comes later.</p>

@@ -2,13 +2,13 @@
 // folder, packs the data into encrypted 7-Zip volumes, writes the checksums, the manifest and the small kit zip.
 // It never changes a picked folder or repository and uploads nothing: the user uploads the output folder's files.
 import { existsSync } from 'node:fs';
-import { copyFile, mkdir, readdir, rm, stat, statfs, writeFile } from 'node:fs/promises';
+import { copyFile, cp, mkdir, readdir, rm, stat, statfs, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { scan, defaultOut, formatPlan } from './plan.mjs';
 import { isClientPath } from './rules.mjs';
 import { makeBundle, stashPatch } from './git.mjs';
-import { check7z, addArgs, exitMeaning } from './sevenzip.mjs';
+import { check7z, addArgs, exitMeaning, run7z, lastLines } from './sevenzip.mjs';
 import { norm, archiveRel, driveOf, outProblem } from './paths.mjs';
 import { signedBy, download, fetchText } from './env.mjs';
 import { htmlReport } from './report.mjs';
@@ -99,6 +99,13 @@ export async function pack(o, emit = () => {}) {
   const problems = await preflight(plan, out, { ...o, encrypt });
   if (problems.length) throw new Error(`pack stopped before writing anything:\n${problems.map((p) => `  - ${p}`).join('\n')}`);
   const sz = await check7z();
+  // With getPassword (the user interface), 7-Zip runs without a console and reads the password from a pipe.
+  const piped = typeof o.getPassword === 'function';
+  let password = '';
+  if (piped && encrypt) {
+    password = String((await o.getPassword()) ?? '');
+    if (!password) throw new Error('pack stopped before writing anything: no password was given');
+  }
   const rules = plan.rules;
   const work = w.join(out, '.work');
   const stage = { data: w.join(out, '.stage-data'), client: w.join(out, '.stage-client') };
@@ -180,8 +187,18 @@ export async function pack(o, emit = () => {}) {
     await writeFile(listFile, `${l.lines.join('\r\n')}\r\n`, 'utf8');
     const archive = w.join(out, `${l.name}.7z`);
     emit({ type: 'step', text: `${l.name}: ${l.lines.length} entries, ${fmtBytes(l.bytes)}` });
-    if (encrypt) emit({ type: 'step', text: `7-Zip now asks for the password of ${l.name} (and asks again to confirm it). Use one password for all parts and keep it safe: the kit never stores it.` });
-    const code = await runInherit(sz.exe, addArgs({ archive, listFile, volumeBytes: plan.volumeBytes, encrypt }), { cwd: `${l.drive}:\\` });
+    const args = addArgs({ archive, listFile, volumeBytes: plan.volumeBytes, encrypt });
+    let code;
+    if (piped) {
+      emit({ type: 'progress', done: 0, total: 100, text: l.name, part: l.name });
+      const r = await run7z(sz.exe, args, { cwd: `${l.drive}:\\`, password, confirm: true,
+        onPercent: (pct) => emit({ type: 'progress', done: pct, total: 100, text: l.name, part: l.name }) });
+      code = r.code;
+      if (code !== 0 && code !== 1) emit({ type: 'warn', text: `${l.name}: ${lastLines(r.out)}` });
+    } else {
+      if (encrypt) emit({ type: 'step', text: `7-Zip now asks for the password of ${l.name} (and asks again to confirm it). Use one password for all parts and keep it safe: the kit never stores it.` });
+      code = await runInherit(sz.exe, args, { cwd: `${l.drive}:\\` });
+    }
     if (code === 1) plan.warnings.push(`${l.name}: 7-Zip ${exitMeaning(1)}`);
     else if (code !== 0) throw new Error(`7-Zip stopped on ${l.name}: ${exitMeaning(code)}. The output folder ${out} is incomplete: delete it and pack again.`);
   }
@@ -247,7 +264,7 @@ export async function pack(o, emit = () => {}) {
 }
 
 /**
- * Builds laptop-move-kit.zip: kit.mjs, lib, manifest.json, README.md and the official node.exe.
+ * Builds laptop-move-kit.zip: kit.mjs, lib, ui (the page), manifest.json, README.md and the official node.exe.
  * @param {{kitDir: string, work: string, out: string, manifest: any, exe: string, emit: (e: any) => void}} o
  */
 async function makeKitZip(o) {
@@ -259,6 +276,10 @@ async function makeKitZip(o) {
   await writeFile(w.join(kz, 'manifest.json'), `${JSON.stringify(o.manifest, null, 2)}\n`, 'utf8');
   const readme = [w.join(o.kitDir, 'README.md'), w.join(o.kitDir, '..', 'README.md')].find((f) => existsSync(f));
   const entries = ['kit.mjs', 'lib', 'manifest.json'];
+  if (existsSync(w.join(o.kitDir, 'ui', 'server.mjs'))) {
+    await cp(w.join(o.kitDir, 'ui'), w.join(kz, 'ui'), { recursive: true });
+    entries.push('ui');
+  }
   if (readme) { await copyFile(readme, w.join(kz, 'README.md')); entries.push('README.md'); }
   const node = await officialNode(w.join(kz, 'node.exe'), o.work, o.emit);
   if (node.ok) entries.push('node.exe');
@@ -307,10 +328,10 @@ export function nodeSum(text) {
 
 /** The pack report: local only (it names client repositories to push), never inside the bundle. */
 function packReport(/** @type {any} */ plan, /** @type {any} */ man, /** @type {string} */ out, /** @type {string} */ kitZip) {
-  const parts = man.archives.flatMap((/** @type {any} */ a) => a.parts.map((/** @type {any} */ p) => [p.file, a.group === 'client' ? 'client part: company OneDrive only' : 'data part', fmtBytes(p.size), p.sha256]));
-  parts.push([w.basename(kitZip), 'the kit: anywhere', '', '']);
+  const parts = man.archives.flatMap((/** @type {any} */ a) => a.parts.map((/** @type {any} */ p) => [p.file, a.group === 'client' ? 'client part: Accenture OneDrive only' : 'data part: Accenture OneDrive', fmtBytes(p.size), p.sha256]));
+  parts.push([w.basename(kitZip), 'the kit: Accenture OneDrive', '', '']);
   return htmlReport('Laptop move: pack report', `${out}, ${new Date().toLocaleString()}`, [
-    { title: 'Files to upload', intro: `Upload every file of ${out}. Client parts go to the company OneDrive only; the kit, the data parts and SHA256SUMS.txt may go to any drive you choose. On the new laptop put them all in one folder.`, columns: ['File', 'Where', 'Size', 'SHA-256'], rows: parts },
+    { title: 'Files to upload', intro: `Upload every file of ${out} to your Accenture OneDrive, and only there: never a client's OneDrive, a personal drive or another cloud drive. Never upload the password. On the new laptop put them all in one folder.`, columns: ['File', 'Where', 'Size', 'SHA-256'], rows: parts },
     { title: 'Push first (client repositories with local work, not in the bundle)', columns: ['Repository', 'Branch', 'Unpushed', 'Stashes', 'Uncommitted'], rows: plan.pushFirst.map((/** @type {any} */ p) => [p.path, p.branch ?? 'detached', p.unpushed, p.stashes, p.dirty]) },
     { title: 'Move by hand (never copied)', columns: ['Path', 'Why'], rows: plan.byHand.map((/** @type {any} */ b) => [b.path, b.why]) },
     { title: 'Repositories', columns: ['Repository', 'How', 'Branch', 'Local work'], rows: plan.repos.map((/** @type {any} */ r) => [r.path, r.mode === 'clone' ? 'clone' : `clone + bundle${r.bundle ? '' : ' (nothing to bundle)'}`, r.branch ?? 'detached', `${r.unpushed} unpushed, ${r.stashes.length} stashes, ${r.dirtyCount} uncommitted`]) },

@@ -44,14 +44,46 @@ The file looks like this (the patterns are regular expressions matched against t
 How client data is handled:
 
 - **Client repositories with a remote** stay out of the bundle and are cloned again. Push their local work before the move: the dry run lists it under "Push first".
-- **Client repositories without a remote, and client folders,** go into a separate encrypted client part, `client-*.7z.*`. Upload that part to the company OneDrive only.
+- **Client repositories without a remote, and client folders,** go into a separate encrypted client part, `client-*.7z.*`. Upload that part to your Accenture OneDrive only, never to a client's OneDrive.
 - **`--client-data`** carries client repositories whole, still only in the client part.
 - **Output folder:** the kit refuses an output folder inside a client folder or the client's OneDrive.
 - **No rules file:** pack stops, unless you add `--no-client-rules` (nothing on the laptop is client data).
 
 ## Password
 
-Every data part is encrypted with 7-Zip AES, file names included. 7-Zip asks for the password at its own console prompt, once per archive when packing (plus a confirmation) and again when unpacking. The kit never sees, stores or logs it. Use one password for all parts and keep it somewhere safe.
+Every data part is encrypted with 7-Zip AES-256, file names included. Use one password for all parts and keep it somewhere safe: it cannot be recovered.
+
+- **In the page** (`ui`): you type it twice. It needs at least 12 characters, and only letters, digits, spaces and the signs of a US keyboard, so it types the same on any keyboard. The page sends it to the mover on 127.0.0.1, and the mover pipes it to 7-Zip's input. It is never on a command line, in a file, in a log or in an address, and the mover keeps no copy after the step.
+- **On the command line:** 7-Zip asks for it at its own console prompt, once per archive when packing (plus a confirmation) and again when unpacking. The kit never sees it.
+
+## The page
+
+The guided page runs every step: scan, choose, dry run, pack, upload, restore and the report. Each screen has a help link to the guide, and the whole guide can be printed. The mover's own node serves the page on 127.0.0.1 only, on a free port, behind a one-time link and a session key. The page opens in your default browser, and the mover stops when you close the page or press "End the mover".
+
+On the old laptop, in the `kit` folder of this repository:
+
+```powershell
+node kit.mjs ui
+```
+
+On the new laptop, in the extracted `laptop-move-kit` folder:
+
+```powershell
+.\node.exe kit.mjs ui
+```
+
+Options:
+
+- `--selection <file>`;
+- `--scan-root "<folder>;<folder>"`;
+- `--no-open` prints the link instead of opening it.
+
+The page saves the selection in the form's own format. An existing file is kept as a dated `.bak.json` copy. The page never saves into a client's folder or a OneDrive folder.
+
+Not moved, checked on the new laptop instead:
+
+- **Printers:** secure print queues come from the company setup on the new laptop. Print one page to check.
+- **Wi-Fi:** no Wi-Fi profile or key is packed. Check that the office network is there.
 
 ## Old laptop
 
@@ -70,13 +102,13 @@ Run these in PowerShell, in the `kit` folder of this repository.
    node kit.mjs dry-run --out C:\LaptopMove\bundle
    ```
 
-4. Pack into a new, empty local folder. It must not be a synced OneDrive folder; `--allow-onedrive` accepts your own company OneDrive.
+4. Pack into a new, empty local folder. It must not be a synced OneDrive folder; `--allow-onedrive` accepts your own Accenture OneDrive.
 
    ```powershell
    node kit.mjs pack --out C:\LaptopMove\bundle
    ```
 
-5. Upload every file of `C:\LaptopMove\bundle` (the client part goes to the company OneDrive only).
+5. Upload every file of `C:\LaptopMove\bundle` to your Accenture OneDrive (the client part too, never a client's OneDrive).
 
 To see all options:
 
@@ -124,6 +156,12 @@ From this folder:
 
 ```powershell
 npm test
+```
+
+The page in Edge, on sample data only (a dry run: Pack is never pressed). It needs playwright-core, so name the folder that holds it:
+
+```powershell
+node scripts/check-ui.mjs --playwright <folder holding node_modules\playwright-core>
 ```
 
 From this folder, the type check:

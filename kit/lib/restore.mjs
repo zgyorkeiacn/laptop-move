@@ -1,4 +1,5 @@
-// restore, on the new laptop: checks the parts, unpacks them (7-Zip asks for the password), installs the apps one by
+// restore, on the new laptop: checks the parts, unpacks them (7-Zip asks for the password on the console, or reads the
+// one typed in the page through a pipe), installs the apps one by
 // one, clones the repositories and brings their local work back, puts folders and settings at their places, recreates
 // the junctions and writes a report. It never deletes a file it did not bring and never replaces one, except settings
 // (and every file with --overwrite): a replaced file is first copied to <work>\replaced.
@@ -7,7 +8,7 @@ import { copyFile, lstat, mkdir, readdir, readFile, rename, statfs, unlink, writ
 import os from 'node:os';
 import path from 'node:path';
 import { archiveRel, driveOf, isInside, mapPath, norm } from './paths.mjs';
-import { check7z, extractArgs, exitMeaning } from './sevenzip.mjs';
+import { check7z, extractArgs, exitMeaning, run7z, lastLines } from './sevenzip.mjs';
 import { wingetAvailable, wingetInstall } from './winget.mjs';
 import { installApps, installFromLink, installExtensions, cmdLine } from './apps.mjs';
 import { refreshPath, openFile } from './env.mjs';
@@ -108,18 +109,31 @@ async function ensure7z(manifest, work, emit) {
 }
 
 /**
- * Unpacks one split archive into <work>\unpacked\<name>. A wrong password may be typed again (three tries).
+ * Unpacks one split archive into <work>\unpacked\<name>. On the console a wrong password may be typed again (three
+ * tries). With a password (from the user interface) 7-Zip reads it from a pipe, once: a wrong one stops the restore.
  * @param {any} a
  * @param {string} from
  * @param {string} work
  * @param {string} exe
  * @param {boolean} encrypted
  * @param {(e: any) => void} emit
+ * @param {string|null} [password]
  */
-async function unpack(a, from, work, exe, encrypted, emit) {
+export async function unpack(a, from, work, exe, encrypted, emit, password = null) {
   const dir = w.join(work, 'unpacked', a.name);
   const marker = w.join(work, 'unpacked', `${a.name}.done`);
   if (existsSync(marker)) return { ok: true, dir, again: true };
+  if (password !== null) {
+    emit({ type: 'progress', done: 0, total: 100, text: `unpacking ${a.name}`, part: a.name });
+    const r = await run7z(exe, extractArgs(w.join(from, a.parts[0].file), dir), { password: encrypted ? password : '',
+      onPercent: (pct) => emit({ type: 'progress', done: pct, total: 100, text: `unpacking ${a.name}`, part: a.name }) });
+    if (r.code === 0 || r.code === 1) {
+      await writeFile(marker, `${new Date().toISOString()}\n`, 'utf8');
+      return { ok: true, dir, warning: r.code === 1 ? exitMeaning(1) : null };
+    }
+    if (r.code === 2 && encrypted) return { ok: false, dir, why: 'wrong password or a damaged part: type the password again and run restore again (it continues where it stopped)' };
+    return { ok: false, dir, why: `${exitMeaning(r.code)}${lastLines(r.out) ? ` (${lastLines(r.out)})` : ''}` };
+  }
   for (let attempt = 1; attempt <= 3; attempt++) {
     if (encrypted) emit({ type: 'step', text: `7-Zip asks for the password of ${a.name} now (the one you typed when packing)` });
     const code = await runInherit(exe, extractArgs(w.join(from, a.parts[0].file), dir));
@@ -427,12 +441,18 @@ export async function restore(o, emit = () => {}) {
   const sz = await ensure7z(manifest, work, emit);
 
   emit({ type: 'phase', name: 'unpack', text: 'Unpacking' });
+  // With getPassword (the user interface), 7-Zip runs without a console and reads the password from a pipe.
+  /** @type {string|null} */ let password = null;
+  if (typeof o.getPassword === 'function') {
+    password = manifest.encrypted ? String((await o.getPassword()) ?? '') : '';
+    if (manifest.encrypted && !password) throw new Error('no password was given: type the password you chose when packing, then run restore again');
+  }
   /** @type {{name: string, group: string, drive: string, dir: string, stageRel: string|null}[]} */
   const roots = [];
   const todo = parts.archives.filter((a) => a.status === 'ok').sort((a, b) => (a.group === b.group ? 0 : a.group === 'data' ? -1 : 1));
   for (const a of todo) {
     emit({ type: 'step', text: `${a.name}: ${a.parts.length} part${a.parts.length === 1 ? '' : 's'}` });
-    const u = await unpack(a, from, work, sz.exe, !!manifest.encrypted, emit);
+    const u = await unpack(a, from, work, sz.exe, !!manifest.encrypted, emit, password);
     if (!u.ok) {
       if (a.group === 'client') { warnings.push(`client part ${a.name}: ${u.why}; restored without it`); continue; }
       throw new Error(`unpacking ${a.name} failed: ${u.why}. Run restore again; it continues where it stopped.`);

@@ -69,7 +69,7 @@ export function outProblem(p, rules, allowOneDrive = false) {
   const n = norm(p);
   if (!/^[a-z]:\\/i.test(n)) return 'name an absolute folder on a local drive, for example C:\\LaptopMove';
   for (const f of rules.forbiddenOut ?? []) if (isInside(n, f)) return `${f} is a client folder: the bundle is never written there`;
-  if (isOneDrive(n) && !allowOneDrive) return 'this folder is synced by OneDrive: name a local folder (the kit uploads nothing), or add --allow-onedrive for your own company OneDrive';
+  if (isOneDrive(n) && !allowOneDrive) return 'this folder is synced by OneDrive: name a local folder (the kit uploads nothing), or add --allow-onedrive for your own Accenture OneDrive (never a client\'s)';
   return null;
 }
 

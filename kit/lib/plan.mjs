@@ -18,6 +18,11 @@ const MB = 1024 * 1024;
 /** Rough rates for the estimate: packed size, 7-Zip speed on a busy laptop, upload and unpack speed. */
 export const RATES = { ratio: 0.75, packBps: 25 * MB, uploadBps: 10 * MB, unpackBps: 60 * MB };
 
+/** Printers are not moved: secure print queues come from the company setup of the new laptop. */
+export const PRINTER_STEP = 'Printers: not moved. Secure print queues come from the company setup on the new laptop: check that one page prints.';
+/** Wi-Fi is not moved: no profile and no key is ever exported. */
+export const WIFI_STEP = 'Wi-Fi: not moved (no Wi-Fi profile or key is packed). The office network usually comes with the company image: check that it is there, and join other networks by hand.';
+
 /** Where the selection file is looked for when none is named. */
 export function selectionCandidates() {
   const list = [w.join(process.cwd(), 'laptop-move-selection.json')];
@@ -189,6 +194,8 @@ export async function scan(o, emit = () => {}) {
   for (const a of plan.apps) if (a.kind === 'own' || a.kind === 'company' || a.kind === 'byhand') plan.userSteps.push(`${a.name}: ${a.note}`);
   plan.userSteps.push('Sign in to Edge and Chrome with your account and let them sync (profiles are never copied).');
   plan.userSteps.push('Git asks you to sign in (Git Credential Manager) the first time it clones from each host.');
+  plan.userSteps.push(PRINTER_STEP);
+  plan.userSteps.push(WIFI_STEP);
   if (plan.byHand.length) plan.userSteps.push(`Move the ${plan.byHand.length} secret-bearing files and folders listed under "move by hand" yourself, or create them again.`);
   if (plan.pushFirst.length) plan.userSteps.push(`Before packing, push the local work of ${plan.pushFirst.length} client repositories (listed under "push first").`);
 
@@ -397,7 +404,7 @@ export function formatPlan(plan, o = {}) {
     if (!g.bytes && !g.files) { L.push(`  ${name}: empty`); continue; }
     L.push(`  ${name}: ${fmtBytes(g.bytes)} in ${g.files} files, about ${fmtBytes(e.archive)} packed, ${e.parts} part${e.parts === 1 ? '' : 's'} of ${fmtBytes(plan.volumeBytes)}; packing about ${fmtDuration(e.packSeconds)}, upload at 10 MB/s about ${fmtDuration(e.uploadSeconds)}, unpacking about ${fmtDuration(e.unpackSeconds)}`);
   }
-  if (t.client.bytes || plan.repos.some((/** @type {any} */ r) => r.group === 'client')) L.push('  The client part belongs on the company OneDrive only.');
+  if (t.client.bytes || plan.repos.some((/** @type {any} */ r) => r.group === 'client')) L.push('  The client part belongs on your Accenture OneDrive only, never on a client\'s OneDrive.');
   L.push('  Bundles of unpushed commits are not counted (usually small).');
   return L.join('\n');
 }

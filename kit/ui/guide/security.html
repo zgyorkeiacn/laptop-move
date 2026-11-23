@@ -1,0 +1,12 @@
+<h2>Security notes for IT</h2>
+<table>
+<tr><th>Question</th><th>Answer</th></tr>
+<tr><td>Encryption</td><td>7-Zip AES-256, file names encrypted. The password is typed by the user, piped to 7-Zip and never stored.</td></tr>
+<tr><td>Integrity</td><td>SHA-256 per part, checked before anything is unpacked.</td></tr>
+<tr><td>Executables</td><td>Only the official signed portable node.exe, the installed 7-Zip 26.03 or newer, and winget. Vendor downloads run only if the Authenticode signature is valid and matches the recorded publisher.</td></tr>
+<tr><td>Network</td><td>The page is served on 127.0.0.1 only, on a free port, behind a one-time link, a session cookie and a per-page key. Requests from another site or another host name are refused. The tool uploads nothing.</td></tr>
+<tr><td>Secrets</td><td>Never copied; listed for by-hand moving. No Wi-Fi profile or key is exported.</td></tr>
+<tr><td>Client data</td><td>Client repositories with a remote stay out; others go into a separate encrypted part for Accenture OneDrive only. The mover never writes into a client's OneDrive.</td></tr>
+<tr><td>Credential stores</td><td>None used.</td></tr>
+</table>
+<p class="small">A fuller guide page comes later.</p>

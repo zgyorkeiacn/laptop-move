@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="lm-key" content="__LM_KEY__">
+<title>Laptop mover</title>
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/app.css">
+<script src="/app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+<strong>Laptop mover</strong>
+<span class="sub">Guide-first portal</span>
+<span class="who" id="who">This page runs on this computer only (127.0.0.1)</span>
+<a class="btn ghost sm" href="/guide/print" target="_blank" rel="noopener">Printable guide</a>
+<button class="btn sm" type="button" id="end">End the mover</button>
+</header>
+<div class="ended hide" id="ended" role="alert">The mover has ended. Close this page. To start again, run the mover's ui command again.</div>
+<div class="hero"><h1>Moving to a new laptop, the guided way</h1><p>Each step has a page here and a page in the guide. Nothing is written until you press Pack or Restore, and the mover uploads nothing.</p></div>
+<div class="por">
+<nav class="toc" aria-label="Screens" id="toc"></nav>
+<main id="main" class="art">
+
+<article data-screen="start" data-title="Start" data-help="start" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Start</span></div><div class="sbody">
+<h2>Move to a new laptop</h2>
+<p>Four parts, in order. Each has a guide and a page that runs the step. It takes about an hour of your time, most of it waiting.</p>
+<div class="grid2">
+<div class="card purple"><h3>1 Scan and choose</h3><p>On the old laptop. Nothing is changed.</p><button class="btn sm" type="button" data-go="scan">Open</button></div>
+<div class="card purple"><h3>2 Dry run and pack</h3><p>See size and time, then pack with a password.</p><button class="btn sm" type="button" data-go="dryrun">Open</button></div>
+<div class="card purple"><h3>3 Upload and download</h3><p>You put the bundle on your Accenture OneDrive.</p><button class="btn sm" type="button" data-go="upload">Open</button></div>
+<div class="card purple"><h3>4 Restore and check</h3><p>On the new laptop, one command, then a report.</p><button class="btn sm" type="button" data-go="restore">Open</button></div>
+</div>
+<div class="card" id="selcard">
+<h3>Your selection</h3>
+<p id="selinfo">No selection is loaded yet.</p>
+<label class="field"><span>Load a selection file saved earlier (full path, ends in .json)</span><input type="text" id="selfile" autocomplete="off" spellcheck="false"></label>
+<div class="row"><button class="btn sm" type="button" id="selload">Load</button>
+<label class="btn ghost sm" for="selpick">Import a file</label><input type="file" id="selpick" accept=".json,application/json" class="hide">
+<button class="btn ghost sm" type="button" id="selnew">Start an empty selection</button>
+<span class="status" id="selstat" role="status"></span></div>
+<div id="selcands" class="small"></div>
+</div>
+<div class="card warn hide" id="szcard"><strong>7-Zip:</strong> <span id="sztext"></span> The mover packs and unpacks with the installed 7-Zip 26.03 or newer only.</div>
+<p>New here? <button class="btn ghost sm" type="button" data-go="tutorial">Read the 5-step tutorial</button> <button class="btn ghost sm" type="button" data-go="instructions">Detailed instructions</button></p>
+<div class="nav"><span></span><button class="btn" type="button" data-go="scan">Start: scan this laptop</button></div>
+</div></section></article>
+
+<article data-screen="scan" data-title="Scan" data-help="scan" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Scan</span></div><div class="sbody">
+<h3>Scan this laptop</h3>
+<p>The mover lists folders, applications, settings and repositories. It only reads. It never pushes, fetches or locks a repository, and it shows no remote's address.</p>
+<label class="field"><span>Where to look (one folder per line; empty: your user folder and the system drive)</span><input type="text" id="scanroots" autocomplete="off" spellcheck="false"></label>
+<label class="pick"><input type="checkbox" id="scanapps" checked> Ask winget which applications are installed (takes a minute)</label>
+<div class="row"><button class="btn" type="button" id="scango">Scan now</button><span class="status" id="scanstat" role="status"></span></div>
+<div class="bar" id="scanbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Scan"><i></i></div>
+<p class="mono" id="scantext">waiting</p>
+<div id="scannotes" class="small"></div>
+<div class="nav"><button class="btn ghost" type="button" data-go="start">Back</button><button class="btn" type="button" data-go="apps">Next: choose what moves</button></div>
+</div></section></article>
+
+<article data-screen="apps" data-title="Choose: applications" data-help="choose" class="hide">
+<p class="inline">Guide: every application shows how it will be installed on the new laptop.</p>
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Choose: applications</span></div><div class="sbody">
+<h3>Choose what moves: applications</h3>
+<div class="row"><input type="search" class="filter" id="appfilter" placeholder="Filter" aria-label="Filter the applications"></div>
+<div class="tablewrap"><table><thead><tr><th>Move</th><th>Application</th><th>Install route</th><th>What happens</th></tr></thead><tbody id="approws"></tbody></table></div>
+<p><strong id="appsum">Selected: 0 items</strong></p>
+<div class="nav"><button class="btn ghost" type="button" data-go="scan">Back</button><button class="btn" type="button" data-go="folders">Next: folders</button></div>
+</div></section></article>
+
+<article data-screen="folders" data-title="Choose: folders" data-help="choose" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Choose: folders</span></div><div class="sbody">
+<h3>Choose what moves: folders</h3>
+<div class="row"><input type="search" class="filter" id="folderfilter" placeholder="Filter" aria-label="Filter the folders"></div>
+<div class="tablewrap"><table><thead><tr><th>Move</th><th>Folder</th><th>How</th><th>What happens</th></tr></thead><tbody id="folderrows"></tbody></table></div>
+<p class="card purple">Folders that hold secrets are never copied: they are on the by-hand list. Sizes come with the dry run.</p>
+<p><strong id="foldersum">Selected: 0 items</strong></p>
+<div class="nav"><button class="btn ghost" type="button" data-go="apps">Back</button><button class="btn" type="button" data-go="repos">Next: repositories</button></div>
+</div></section></article>
+
+<article data-screen="repos" data-title="Choose: repositories" data-help="choose" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Choose: repositories</span></div><div class="sbody">
+<h3>Choose what moves: repositories</h3>
+<div class="row"><input type="search" class="filter" id="repofilter" placeholder="Filter" aria-label="Filter the repositories"></div>
+<div class="tablewrap"><table><thead><tr><th>Move</th><th>Repository</th><th>State</th><th>How</th><th>What happens</th></tr></thead><tbody id="reporows"></tbody></table></div>
+<p class="card purple">A client repository with a remote stays out of the bundle: push its work, then clone it again. One without a remote goes into the separate client part, for your Accenture OneDrive only.</p>
+<p><strong id="reposum">Selected: 0 items</strong></p>
+<div class="nav"><button class="btn ghost" type="button" data-go="folders">Back</button><button class="btn" type="button" data-go="settings">Next: settings</button></div>
+</div></section></article>
+
+<article data-screen="settings" data-title="Choose: settings" data-help="choose" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Choose: settings</span></div><div class="sbody">
+<h3>Choose what moves: settings</h3>
+<div id="setrows"></div>
+<p><strong id="setsum">Selected: 0 items</strong></p>
+<h4>Not moved: checked on the new laptop</h4>
+<p class="card purple" id="wifinote"></p>
+<p class="card purple" id="printernote"></p>
+<div class="nav"><button class="btn ghost" type="button" data-go="repos">Back</button><button class="btn" type="button" data-go="byhand">Next: the by-hand list</button></div>
+</div></section></article>
+
+<article data-screen="byhand" data-title="By-hand list" data-help="byhand" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>By hand</span></div><div class="sbody">
+<h3>Move by hand</h3>
+<p>These are never copied. Move each one the safe way for what it is, or create it again on the new laptop, then tick it. The ticks stay in this page only.</p>
+<table><thead><tr><th>Item</th><th>Why</th><th>Done</th></tr></thead><tbody id="byhandrows"></tbody></table>
+<p class="small" id="byhandsrc">Run the dry run to add the files it finds in your chosen folders.</p>
+<div class="card" id="savecard">
+<h3>Save the selection</h3>
+<p class="small">Saved in the same format as before, so the form and the mover both read it. An existing file is kept as a dated .bak.json copy next to it. The mover never saves into a client's folder or a OneDrive folder.</p>
+<label class="field"><span>Selection file (full path)</span><input type="text" id="savefile" autocomplete="off" spellcheck="false"></label>
+<div class="row"><button class="btn sm" type="button" id="savego">Save the selection</button><span class="status" id="savestat" role="status"></span></div>
+</div>
+<div class="nav"><button class="btn ghost" type="button" data-go="settings">Back</button><button class="btn" type="button" data-go="dryrun">Next: dry run</button></div>
+</div></section></article>
+
+<article data-screen="dryrun" data-title="Dry run" data-help="dryrun" class="hide">
+<p class="inline">Guide: read the dry run, then pack. Nothing is written yet.</p>
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Dry run</span></div><div class="sbody">
+<h3>Dry run (nothing is written yet)</h3>
+<label class="field"><span>Output folder on a local drive (not a OneDrive folder: you upload the files yourself)</span><input type="text" id="outdir" autocomplete="off" spellcheck="false"></label>
+<label class="field"><span>Part size (for example 4g or 500m; empty: 4g)</span><input type="text" id="volume" autocomplete="off" spellcheck="false"></label>
+<label class="pick"><input type="checkbox" id="clientdata"> Carry client repositories whole (still only in the separate encrypted client part)</label>
+<div class="row"><button class="btn" type="button" id="drygo">Run the dry run</button><span class="status" id="drystat" role="status"></span></div>
+<div class="bar hide" id="drybar"><i></i></div>
+<div id="dryout"></div>
+<div class="nav"><button class="btn ghost" type="button" data-go="byhand">Back</button><button class="btn" type="button" data-go="password">Next: password</button></div>
+</div></section></article>
+
+<article data-screen="password" data-title="Password step" data-help="password" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Password</span></div><div class="sbody">
+<h3>The password step</h3>
+<p>Every part is encrypted with 7-Zip (AES-256, file names too). Type a long passphrase twice. It goes from this page straight to 7-Zip through a pipe: it is never on a command line, in a file, in a log or in an address, and the mover keeps no copy. Write it down somewhere safe: without it the bundle cannot be opened, and nobody can recover it.</p>
+<div class="card warn hide" id="pwnodry">Run the dry run first: packing uses its output folder and part size.</div>
+<label class="field"><span>Password</span><input type="password" id="pw1" autocomplete="new-password" spellcheck="false"></label>
+<label class="field"><span>The same password again</span><input type="password" id="pw2" autocomplete="new-password" spellcheck="false"></label>
+<p class="pwrule no" id="pwlen">At least 12 characters</p>
+<p class="pwrule no" id="pwascii">Letters, digits, spaces and the signs of a US keyboard only (no accented letters), so it types the same on any keyboard</p>
+<p class="pwrule no" id="pwsame">Both fields the same</p>
+<div class="row"><button class="btn" type="button" id="packgo" disabled>Pack now</button><span class="status" id="packstat" role="status"></span></div>
+<div class="nav"><button class="btn ghost" type="button" data-go="dryrun">Back</button><button class="btn" type="button" data-go="packing">Next: packing</button></div>
+</div></section></article>
+
+<article data-screen="packing" data-title="Packing progress" data-help="pack" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Packing</span></div><div class="sbody">
+<h3>Packing</h3>
+<p id="packidle">Nothing is being packed. Start on the password page.</p>
+<div id="phases"></div>
+<div id="partbars"></div>
+<p class="mono" id="packtext"></p>
+<div class="log" id="packlog" aria-live="polite"></div>
+<div id="packdone"></div>
+<div class="nav"><button class="btn ghost" type="button" data-go="password">Back</button><button class="btn" type="button" data-go="upload">Next: upload</button></div>
+</div></section></article>
+
+<article data-screen="upload" data-title="Upload step" data-help="upload" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Upload</span></div><div class="sbody">
+<h3>Upload the bundle</h3>
+<p>The mover does not upload. You put the files on your Accenture OneDrive, where you can reach them from the new laptop.</p>
+<h4>Data parts and kit zip</h4>
+<label class="choice"><input type="radio" name="up1" checked disabled> Accenture OneDrive only</label>
+<h4>Client part</h4>
+<label class="choice"><input type="radio" name="up2" checked disabled> Accenture OneDrive only</label>
+<div id="uplist"></div>
+<p class="card purple">Open OneDrive in your browser, create a folder named move, drag the .7z parts and the kit zip in, and wait until each file shows a green tick.</p>
+<p class="card bad"><strong>Never</strong> put the client part on a client's OneDrive or on a personal drive. Never upload the password.</p>
+<div class="nav"><button class="btn ghost" type="button" data-go="packing">Back</button><button class="btn" type="button" data-go="restore">Next: on the new laptop</button></div>
+</div></section></article>
+
+<article data-screen="restore" data-title="New laptop: restore" data-help="restore" class="hide">
+<p class="inline">Guide: on the new laptop, download the bundle into one folder, unzip the kit, start the mover and restore.</p>
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>New laptop: restore</span></div><div class="sbody">
+<h3>On the new laptop: restore</h3>
+<ol><li>Download the kit zip and all parts into one new folder, for example <code>C:\move</code>.</li>
+<li>Unzip <code>laptop-move-kit.zip</code> there.</li>
+<li>Open PowerShell in the unzipped kit folder and run the command below. Do not change the execution policy.</li></ol>
+<pre>.\node.exe kit.mjs ui</pre>
+<p class="small">Without a page: <code>.\node.exe kit.mjs restore --from C:\move</code> (7-Zip then asks for the password in the console).</p>
+<div class="card warn hide" id="oldnote">This is the old laptop: the restore runs on the new one, from the unzipped kit. The form below still checks a bundle folder.</div>
+<div id="mfinfo"></div>
+<label class="field"><span>Folder with the downloaded parts</span><input type="text" id="rsfrom" autocomplete="off" spellcheck="false"></label>
+<label class="field"><span>Work folder for unpacking (a local drive with room for the bundle)</span><input type="text" id="rswork" autocomplete="off" spellcheck="false"></label>
+<label class="pick"><input type="checkbox" id="rsskipapps"> Skip the applications (install them later)</label>
+<label class="pick"><input type="checkbox" id="rsskipclient"> Skip the client part</label>
+<label class="pick"><input type="checkbox" id="rsoverwrite"> Overwrite files that already exist on this laptop</label>
+<div class="row"><button class="btn ghost" type="button" id="rsdry">Check first (nothing is written)</button><span class="status" id="rsdrystat" role="status"></span></div>
+<div id="rsdryout"></div>
+<label class="field hide" id="rspwrow"><span>The bundle's password</span><input type="password" id="rspw" autocomplete="off" spellcheck="false"></label>
+<div class="row"><button class="btn" type="button" id="rsgo">Restore now</button><span class="status" id="rsstat" role="status"></span></div>
+<div class="nav"><button class="btn ghost" type="button" data-go="upload">Back</button><button class="btn" type="button" data-go="restoring">Next: restore progress</button></div>
+</div></section></article>
+
+<article data-screen="restoring" data-title="Restore progress" data-help="restore" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Restoring</span></div><div class="sbody">
+<h3>Restoring on the new laptop</h3>
+<p id="rsidle">Nothing is being restored. Start on the restore page.</p>
+<table><thead><tr><th>Step</th><th>State</th></tr></thead><tbody id="rsphases"></tbody></table>
+<div class="bar mt" id="rsbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Restore"><i></i></div>
+<p class="mono" id="rstext"></p>
+<div class="log" id="rslog" aria-live="polite"></div>
+<p class="mono">An app is installed only when its signature is valid and matches the recorded publisher.</p>
+<div class="nav"><button class="btn ghost" type="button" data-go="restore">Back</button><button class="btn" type="button" data-go="report">Next: the report</button></div>
+</div></section></article>
+
+<article data-screen="report" data-title="Final report" data-help="report" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Report</span></div><div class="sbody">
+<h3>Final report</h3>
+<p id="repidle">The report shows here when a restore ends.</p>
+<p id="reptags"></p>
+<div id="reptables"></div>
+<div id="repsteps"></div>
+<p class="noprint"><button class="btn sm" type="button" id="repopen" disabled>Open the report as HTML</button> <button class="btn ghost sm" type="button" id="repprint">Print</button> <span class="status" id="repstat" role="status"></span></p>
+<div class="nav"><button class="btn ghost" type="button" data-go="restoring">Back</button><button class="btn" type="button" data-go="tutorial">Next: tutorial</button></div>
+</div></section></article>
+
+<article data-screen="tutorial" data-title="Tutorial" data-help="start" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Tutorial</span></div><div class="sbody">
+<h3>Tutorial: your first move in 5 steps</h3>
+<svg viewBox="0 0 640 110" width="100%" role="img" aria-label="Five steps: scan, choose, pack, upload, restore">
+<g><rect x="8" y="20" width="110" height="60" fill="#A100FF"/><text x="63" y="56" fill="#fff" font-family="Arial" font-size="16" font-weight="700" text-anchor="middle">1. Scan</text></g><path d="M120 50h12" stroke="#000" stroke-width="2"/>
+<g><rect x="134" y="20" width="110" height="60" fill="#A100FF"/><text x="189" y="56" fill="#fff" font-family="Arial" font-size="16" font-weight="700" text-anchor="middle">2. Choose</text></g><path d="M246 50h12" stroke="#000" stroke-width="2"/>
+<g><rect x="260" y="20" width="110" height="60" fill="#A100FF"/><text x="315" y="56" fill="#fff" font-family="Arial" font-size="16" font-weight="700" text-anchor="middle">3. Pack</text></g><path d="M372 50h12" stroke="#000" stroke-width="2"/>
+<g><rect x="386" y="20" width="110" height="60" fill="#460073"/><text x="441" y="56" fill="#fff" font-family="Arial" font-size="16" font-weight="700" text-anchor="middle">4. Upload</text></g><path d="M498 50h12" stroke="#000" stroke-width="2"/>
+<g><rect x="512" y="20" width="110" height="60" fill="#460073"/><text x="567" y="56" fill="#fff" font-family="Arial" font-size="16" font-weight="700" text-anchor="middle">5. Restore</text></g>
+<text x="8" y="104" font-size="12" font-family="Arial" fill="#4D4D4D">Purple: old laptop. Dark purple: moving and new laptop.</text></svg>
+<ol><li><strong>Scan.</strong> The mover lists folders, applications, settings and repositories. Nothing is changed.</li>
+<li><strong>Choose.</strong> Tick what moves. Client repositories with a remote stay out.</li>
+<li><strong>Pack.</strong> Type a password twice in the page. Keep it safe: it is not stored.</li>
+<li><strong>Upload.</strong> Put the bundle on your Accenture OneDrive yourself.</li>
+<li><strong>Restore.</strong> On the new laptop download the bundle, start the mover and restore.</li></ol>
+<div class="card purple"><strong>Tip:</strong> run the dry run first. It shows size, parts, time and the route of every app.</div>
+<div class="nav"><button class="btn ghost" type="button" data-go="report">Back</button><button class="btn" type="button" data-go="instructions">Next: detailed instructions</button></div>
+</div></section></article>
+
+<article data-screen="instructions" data-title="Detailed instructions" data-help="restore" class="hide">
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Instructions</span></div><div class="sbody">
+<h3>Detailed instructions: restore on the new laptop</h3>
+<ol><li>Download the kit zip and all parts into one new folder, for example <code>C:\move</code>.</li>
+<li>Unzip <code>laptop-move-kit.zip</code> there. It holds the mover, the manifest, a README and the signed <code>node.exe</code>.</li>
+<li>Open PowerShell in the unzipped kit folder and run the command shown below. Do not change the execution policy.</li>
+<li>In the page that opens, check the bundle first, then type the password and restore.</li>
+<li>Read the report. Do the by-hand list. Clone the client repositories after you push them.</li></ol>
+<pre>.\node.exe kit.mjs ui</pre>
+<details><summary>If a checksum fails</summary>Download that part again. Never unpack a part that failed its check.</details>
+<details><summary>If an app install is refused</summary>The signature did not match the recorded publisher. Install that app from the vendor's own page.</details>
+<details><summary>If 7-Zip says the password is wrong</summary>Type it again with care for capital letters. The password cannot be recovered.</details>
+<div class="nav"><button class="btn ghost" type="button" data-go="tutorial">Back</button><button class="btn" type="button" data-go="help">Next: help and links</button></div>
+</div></section></article>
+
+<article data-screen="help" data-title="Help and links" data-help="faq" class="hide">
+<h2>Help, FAQ and security</h2>
+<div class="card purple"><h4>Help links</h4>
+<ul><li><a href="#" data-go="tutorial">The 5-step tutorial</a></li><li><a href="#" data-go="instructions">Detailed instructions for the new laptop</a></li><li><a href="#" data-go="byhand">The by-hand list of secrets</a></li><li><a href="/guide/print" target="_blank" rel="noopener">The whole guide, to print</a></li><li><a href="/guide/faq" target="_blank" rel="noopener">Questions and answers</a></li><li><a href="/guide/security" target="_blank" rel="noopener">Security notes for IT</a></li></ul></div>
+<h3>FAQ</h3>
+<details><summary>Is my password stored anywhere?</summary>No. You type it into this page; it goes to 7-Zip through a pipe and is never stored, logged or put in a command line, a file or an address.</details>
+<details><summary>Where do I upload the bundle?</summary>To your Accenture OneDrive only. Never a client's OneDrive, never a personal drive.</details>
+<details><summary>What about client repositories?</summary>With a remote: they stay out, you push first and clone again. Without a remote: a separate encrypted client part for your Accenture OneDrive only.</details>
+<details><summary>Are printers and Wi-Fi moved?</summary>No. Secure print queues come from the company setup on the new laptop: check that one page prints. No Wi-Fi profile or key is packed: check that the office network is there.</details>
+<details><summary>Does it change my repositories?</summary>No. It does not push or fetch and reads git without locks.</details>
+<section class="screen"><div class="sbar"><span>Laptop mover</span><span>Security</span></div><div class="sbody">
+<h3>Security notes for IT</h3>
+<table><tr><th>Question</th><th>Answer</th></tr>
+<tr><td>Encryption</td><td>7-Zip AES-256, file names encrypted, password typed by the user, piped to 7-Zip, never stored</td></tr>
+<tr><td>Integrity</td><td>SHA-256 per part, checked before anything is unpacked</td></tr>
+<tr><td>Executables</td><td>Only the official signed portable node.exe, the installed 7-Zip 26.03 or newer, and winget. Vendor downloads run only if the Authenticode signature is valid and matches the recorded publisher</td></tr>
+<tr><td>Network</td><td>The page is served on 127.0.0.1 only, behind a one-time link and a session key. No upload by the tool: the user uploads</td></tr>
+<tr><td>Secrets</td><td>Never copied, listed for by-hand moving. No Wi-Fi profile or key is exported</td></tr>
+<tr><td>Client data</td><td>Remote repositories stay out; others go in a separate part for Accenture OneDrive only. The mover never writes into a client's OneDrive</td></tr>
+<tr><td>Credential stores</td><td>None used</td></tr></table>
+<div class="nav"><button class="btn ghost" type="button" data-go="instructions">Back</button><button class="btn ghost" type="button" data-go="start">Back to the start</button></div>
+</div></section></article>
+
+</main></div>
+</body>
+</html>
