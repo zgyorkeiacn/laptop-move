@@ -244,9 +244,12 @@
       $('scanbar').classList.remove('busy');
       if (j.state === 'failed') { say('scanstat', j.error, true); return; }
       S.disc = j.result;
+      // worktrees (the aao-wt-* folders of the orchestrator) are ticked by the scan so that no re-scan forgets them
+      var wts = S.disc.found.filter(function (x) { return x.kind === 'repo' && x.worktree && !x.secret && !findFolder(x.path); });
+      wts.forEach(function (x) { setFolder(x.path, true, x.mode); });
       setBar($('scanbar'), 100);
       var f = S.disc.found, repos = f.filter(function (x) { return x.kind === 'repo'; }).length;
-      $('scantext').textContent = 'Scan finished: ' + plural(f.length - repos, 'folder') + ', ' + plural(repos, 'repository', 'repositories') + ', ' + plural(S.disc.apps.length, 'application') + ', ' + plural(S.disc.settings.filter(function (s) { return s.present; }).length, 'setting') + ' found';
+      $('scantext').textContent = 'Scan finished: ' + plural(f.length - repos, 'folder') + ', ' + plural(repos, 'repository', 'repositories') + ', ' + plural(S.disc.apps.length, 'application') + ', ' + plural(S.disc.settings.filter(function (s) { return s.present; }).length, 'setting') + ' found' + (wts.length ? ', ' + plural(wts.length, 'worktree') + ' ticked' : '');
       say('scanstat', 'done');
       mark('scan', 'done');
       clear($('scannotes'));

@@ -61,13 +61,13 @@ export async function remoteFacts(dir, rules) {
 
 /**
  * @typedef {{path: string, kind: 'folder'|'repo'|'loose', parent: string|null, remote: boolean, client: boolean,
- *   secret: string|null, mode: string, note: string}} Found
+ *   secret: string|null, mode: string, note: string, worktree?: boolean}} Found
  */
 
-/** The mode the form would suggest for a find. @param {{kind: string, remote: boolean, client: boolean, secret: string|null}} f */
+/** The mode the form would suggest for a find. @param {{kind: string, remote: boolean, client: boolean, secret: string|null, worktree?: boolean}} f */
 export function suggestMode(f) {
   if (f.secret) return 'by hand';
-  if (f.kind === 'repo') return f.remote ? 'clone again + bundle/dirty' : 'copy whole';
+  if (f.kind === 'repo') return f.remote || f.worktree ? 'clone again + bundle/dirty' : 'copy whole';
   return 'copy whole';
 }
 
@@ -75,6 +75,7 @@ export function suggestMode(f) {
 export function findNote(f) {
   if (f.secret) return `never copied (${f.secret}): it is on the by-hand list`;
   if (f.kind === 'repo') {
+    if (f.worktree) return 'a git worktree: restored with git worktree add after its main repository is cloned, its local commits and changed files carried (the scan ticks it; untick it when its work is finished and merged)';
     if (f.client && f.remote) return 'client, has remote: stays out of the bundle; push its work, then it is cloned again';
     if (f.client) return 'client, no remote: goes into the separate client part, Accenture OneDrive only';
     return f.remote ? 'has remote: cloned again, its local commits, stashes and changed files carried' : 'no remote: packed whole in the data part';
@@ -131,7 +132,7 @@ export async function discover(o = {}) {
       const client = isClientPath(p, rules);
       if (!secret && kids.some((k) => k.name === '.git')) {
         const r = await remoteFacts(p, rules);
-        add({ path: p, kind: 'repo', parent: null, remote: r.remotes > 0, client: client || r.client, secret: null, mode: '', note: '' });
+        add({ path: p, kind: 'repo', parent: null, remote: r.remotes > 0, client: client || r.client, secret: null, mode: '', note: '', worktree: r.worktree });
         continue;
       }
       add({ path: p, kind: 'folder', parent: null, remote: false, client, secret, mode: '', note: '' });
@@ -143,7 +144,7 @@ export async function discover(o = {}) {
         if (!existsSync(w.join(kp, '.git'))) continue;
         if (++c > maxChildren) { notes.push(`${p}: more than ${maxChildren} repositories, the rest are not listed`); break; }
         const r = await remoteFacts(kp, rules);
-        add({ path: kp, kind: 'repo', parent: p, remote: r.remotes > 0, client: client || isClientPath(kp, rules) || r.client, secret: null, mode: '', note: '' });
+        add({ path: kp, kind: 'repo', parent: p, remote: r.remotes > 0, client: client || isClientPath(kp, rules) || r.client, secret: null, mode: '', note: '', worktree: r.worktree });
       }
     }
   }

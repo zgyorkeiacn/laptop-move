@@ -112,3 +112,23 @@ test('parseWingetExport keeps the winget source only, once per id, sorted', () =
   assert.deepEqual(parseWingetExport(null), []);
   assert.deepEqual(parseWingetExport({ Sources: [{ Packages: [{ PackageIdentifier: 'A.B' }] }] }), [{ name: 'A.B', wingetId: 'A.B', source: 'winget' }]);
 });
+
+test('discover marks a git worktree and suggests clone again + bundle/dirty for it', async (t) => {
+  const d = await scratch(t, 'wt');
+  await repo(w.join(d, 'orch'), [URL_TEAM]);
+  await mkdir(w.join(d, 'orch', '.git', 'worktrees', 'aao-wt-x'), { recursive: true });
+  await writeFile(w.join(d, 'orch', '.git', 'worktrees', 'aao-wt-x', 'commondir'), '..\\..\n', 'utf8');
+  await mkdir(w.join(d, 'aao-wt-x'));
+  await writeFile(w.join(d, 'aao-wt-x', '.git'), `gitdir: ${w.join(d, 'orch', '.git', 'worktrees', 'aao-wt-x')}\n`, 'utf8');
+  await repo(w.join(d, 'plain'), []);
+  const r = await discover({ roots: [d], rules: emptyRules(), appLookup: false });
+  const by = Object.fromEntries(r.found.map((f) => [w.relative(d, f.path), f]));
+  assert.equal(by['aao-wt-x'].kind, 'repo');
+  assert.equal(by['aao-wt-x'].worktree, true);
+  assert.equal(by['aao-wt-x'].mode, 'clone again + bundle/dirty');
+  assert.match(by['aao-wt-x'].note, /worktree/);
+  assert.equal(by.orch.worktree, false);
+  assert.equal(by.plain.worktree, false);
+  assert.equal(suggestMode({ kind: 'repo', remote: false, client: false, secret: null, worktree: true }), 'clone again + bundle/dirty');
+  assert.ok(!JSON.stringify(r).includes('example.invalid'));
+});
