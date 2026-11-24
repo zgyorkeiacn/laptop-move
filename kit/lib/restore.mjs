@@ -22,6 +22,16 @@ const w = path.win32;
 
 /** @typedef {{name: string, status: string, detail: string}} Row */
 
+/**
+ * Which paths of the unpacked tree a unit leaves alone: whatever lies inside a repository or stage folder (skips),
+ * unless it lies inside a deeper keep that is itself inside that skip.
+ * @param {string[]} skips @param {string[]} keeps
+ * @returns {(p: string) => boolean}
+ */
+export function unitSkipper(skips, keeps) {
+  return (p) => skips.some((s) => isInside(p, s) && !keeps.some((k) => k.length > s.length && isInside(p, k) && isInside(k, s)));
+}
+
 /** The default work folder (unpacked data, downloads, replaced files, the report). */
 export function defaultWork() {
   return w.join(`${process.env.SystemDrive ?? 'C:'}\\`, 'LaptopMove', 'restore');
@@ -507,8 +517,10 @@ export async function restore(o, emit = () => {}) {
     const keepRels = (u.repoRoots ?? []).map((/** @type {string} */ p) => archiveRel(p)).filter((/** @type {any} */ x) => x.drive === drive);
     for (const r of up.ofDrive(drive)) {
       const skips = [...repoRels, ...stageRels].filter((x) => x.drive === drive).map((x) => w.join(r.dir, x.rel));
-      const keeps = keepRels.map((/** @type {any} */ x) => w.join(r.dir, x.rel));
-      const skipped = (/** @type {string} */ p) => skips.some((s) => isInside(p, s) && !keeps.some((k) => k.length > s.length && isInside(p, k) && isInside(k, s)));
+      // The unit's own folder counts as a keep: a folder or file picked copy whole below a cloned repository (for example a
+      // git-ignored out folder) is put back after the clone.
+      const keeps = [...keepRels.map((/** @type {any} */ x) => w.join(r.dir, x.rel)), w.join(r.dir, rel)];
+      const skipped = unitSkipper(skips, keeps);
       await moveTree(w.join(r.dir, rel), dest, {
         overwrite: u.kind === 'setting' || !!o.overwrite,
         loose: u.kind === 'loose',

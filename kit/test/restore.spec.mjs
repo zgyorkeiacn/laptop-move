@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { moveTree, checkParts, loadManifest, defaultFrom } from '../lib/restore.mjs';
+import { moveTree, checkParts, loadManifest, defaultFrom, unitSkipper } from '../lib/restore.mjs';
 import { archiveRel } from '../lib/paths.mjs';
 import { sha256File } from '../lib/util.mjs';
 
@@ -120,4 +120,16 @@ test('loadManifest and defaultFrom', async (t) => {
   assert.equal(defaultFrom(kit), kit, 'no SHA256SUMS.txt anywhere: the kit folder');
   await writeFile(w.join(d, 'SHA256SUMS.txt'), '');
   assert.equal(defaultFrom(kit), d, 'the parts next to the unpacked kit folder');
+});
+
+test('unitSkipper: a unit picked below a cloned repository is put back, the repository itself and its other folders stay', () => {
+  const repoDir = 'C:\\x\\unp\\C\\git\\orch';
+  const out = `${repoDir}\\out`;
+  const skipped = unitSkipper([repoDir], [out]);
+  assert.equal(skipped(`${repoDir}\\src\\a.ts`), true, 'the repository tree is left to the clone and its dirty overlay');
+  assert.equal(skipped(`${repoDir}\\outer`), true, 'a sibling whose name starts the same is not the unit');
+  assert.equal(skipped(out), false, 'the unit folder itself');
+  assert.equal(skipped(`${out}\\cli\\aao.cjs`), false, 'and what lies in it');
+  assert.equal(unitSkipper([repoDir], [])(`${out}\\cli\\aao.cjs`), true, 'without the keep it is skipped, as before');
+  assert.equal(unitSkipper([repoDir], [repoDir])(`${repoDir}\\a.txt`), true, 'a unit equal to the repository root keeps nothing');
 });
