@@ -85,7 +85,7 @@ export function run7z(exe, args, o = {}) {
       const s = chunk.toString('utf8');
       tail = (tail + s).slice(-16384);
       if (o.onPercent) {
-        const all = [...s.replace(/\x08/g, ' ').matchAll(/(\d{1,3})%/g)];
+        const all = [...s.replaceAll('\b', ' ').matchAll(/(\d{1,3})%/g)];
         const p = all.length ? Number(all[all.length - 1][1]) : -1;
         if (p >= 0 && p <= 100 && p !== last) { last = p; o.onPercent(p); }
       }
@@ -97,7 +97,7 @@ export function run7z(exe, args, o = {}) {
     child.on('error', (e) => { if (timer) clearTimeout(timer); reject(e); });
     child.on('close', (code) => {
       if (timer) clearTimeout(timer);
-      let out = tail.replace(/\x08+/g, '');
+      let out = tail.replaceAll('\b', '');
       if (pw) out = out.split(pw).join('***');
       resolve({ code: code ?? 255, out: out.slice(-8192) });
     });

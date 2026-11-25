@@ -105,7 +105,7 @@ export async function readSelection(file) {
 /** The selection file as the form wrote it (checked, not parsed into entries). @param {string} file */
 export async function readSelectionRaw(file) {
   const text = await readFile(file, 'utf8');
-  const json = JSON.parse(text.replace(/^﻿/, ''));
+  const json = JSON.parse(text.replace(/^\uFEFF/, ''));
   parseSelection(json);
   return json;
 }

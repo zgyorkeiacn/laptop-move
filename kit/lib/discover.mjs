@@ -195,7 +195,7 @@ export async function wingetExport() {
     await mkdir(dir, { recursive: true });
     const r = await run('winget', ['export', '-o', file, '--accept-source-agreements', '--disable-interactivity'], { timeout: 180000 });
     if (!existsSync(file)) return { apps: [], why: `winget export wrote nothing (exit ${r.code})` };
-    return { apps: parseWingetExport(JSON.parse((await readFile(file, 'utf8')).replace(/^﻿/, ''))), why: null };
+    return { apps: parseWingetExport(JSON.parse((await readFile(file, 'utf8')).replace(/^\uFEFF/, ''))), why: null };
   } catch (e) {
     return { apps: [], why: `winget is not available (${/** @type {Error} */ (e).message})` };
   } finally {

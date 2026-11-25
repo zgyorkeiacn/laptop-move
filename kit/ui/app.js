@@ -169,7 +169,7 @@
     var rd = new FileReader();
     rd.onload = function () {
       var json;
-      try { json = JSON.parse(String(rd.result).replace(/^﻿/, '')); } catch (e) { say('selstat', 'that file is not JSON', true); return; }
+      try { json = JSON.parse(String(rd.result).replace(/^\uFEFF/, '')); } catch { say('selstat', 'that file is not JSON', true); return; }
       api('selection/import', { name: f.name, json: json }).then(function (r) { setSelection(r); say('selstat', 'imported (save it to keep it)'); }, function (e) { say('selstat', errText(e), true); });
     };
     rd.readAsText(f);
@@ -200,7 +200,7 @@
     es = new EventSource('/api/events?k=' + encodeURIComponent(KEY));
     es.onmessage = function (m) {
       esFails = 0;
-      var msg; try { msg = JSON.parse(m.data); } catch (e) { return; }
+      var msg; try { msg = JSON.parse(m.data); } catch { return; }
       if (msg.type === 'hello') { if (msg.job) onJob(msg.job); }
       else if (msg.type === 'job') onJob(msg.job);
       else if (msg.type === 'event') onEvent(msg.kind, msg.event);
