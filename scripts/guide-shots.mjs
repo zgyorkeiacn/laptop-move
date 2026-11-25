@@ -86,27 +86,51 @@ page.on('console', (m) => { if (m.type() === 'error') errors.push(`console ${m.t
 const waitText = (/** @type {string} */ sel, /** @type {RegExp} */ re, timeout = 120000) =>
   page.waitForFunction(([q, src0, flags]) => new RegExp(src0, flags).test(document.querySelector(q)?.textContent ?? ''), [sel, re.source, re.flags], { timeout });
 page.on('dialog', (d) => { void d.accept(); });
-// No real user name or computer name in any picture: they are replaced in the text before each shot.
+// No real user name or computer name can reach a picture: a MutationObserver, installed before any page script runs, rewrites
+// every text node and the title, value and placeholder attributes on every change; before each shot the who-line must read
+// the sample names, and after each shot the page text is read and the run fails if a real name is still in it.
+// The real names exist only in memory here, never in a file.
 const realNames = [os.userInfo().username, os.hostname()].filter(Boolean);
-const mask = (/** @type {string[]} */ names) => {
+await context.addInitScript((names) => {
   const repl = ['sample-user', 'SAMPLE-PC'];
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-  /** @type {Node|null} */ let n;
-  while ((n = walker.nextNode())) {
-    let t = n.nodeValue ?? '';
-    names.forEach((x, i) => { t = t.split(x).join(repl[i] ?? 'sample'); });
-    if (t !== n.nodeValue) n.nodeValue = t;
-  }
+  const esc = (/** @type {string} */ x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const rules = names.map((x, i) => [new RegExp(esc(x), 'gi'), repl[i] ?? 'sample']);
+  const fix = (/** @type {string} */ t) => rules.reduce((a, [re, r]) => a.replace(re, r), t);
+  const attrs = ['title', 'value', 'placeholder', 'aria-label', 'alt'];
+  const fixNode = (/** @type {Node} */ n) => {
+    if (n.nodeType === 3) { const t = n.nodeValue ?? ''; const f = fix(t); if (f !== t) n.nodeValue = f; return; }
+    if (n.nodeType !== 1) return;
+    const el = /** @type {Element} */ (n);
+    for (const a of attrs) { const v = el.getAttribute(a); if (v !== null) { const f = fix(v); if (f !== v) el.setAttribute(a, f); } }
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) { const f = fix(el.value); if (f !== el.value) el.value = f; }
+    for (const c of Array.from(el.childNodes)) fixNode(c);
+  };
+  const sweep = () => { if (document.documentElement) fixNode(document.documentElement); if (document.title) { const f = fix(document.title); if (f !== document.title) document.title = f; } };
+  new MutationObserver(sweep).observe(document, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: attrs });
+  document.addEventListener('input', sweep, true);
+  document.addEventListener('DOMContentLoaded', sweep);
+}, realNames);
+const leak = (/** @type {string} */ text) => realNames.some((x) => text.toLowerCase().includes(x.toLowerCase()));
+const shot = async (/** @type {string} */ name) => {
+  await page.waitForFunction(() => {
+    const who = document.getElementById('who')?.textContent ?? '';
+    const shown = Array.from(document.querySelectorAll('article[data-screen]')).some((a) => !a.classList.contains('hide') && (a.textContent ?? '').trim().length > 40);
+    return /sample-user on SAMPLE-PC/.test(who) && shown;
+  }, null, { timeout: 30000 });
+  // the list of selection files found in the user's own folders is a real path: it is hidden in every picture
+  await page.evaluate(() => { document.getElementById('selcands')?.classList.add('hide'); window.scrollTo(0, 0); });
+  await page.screenshot({ path: w.join(IMG, `${name}.png`), fullPage: true });
+  const text = await page.evaluate(() => document.body.innerText + '\n' + document.title);
+  if (leak(text)) { await rm(w.join(IMG, `${name}.png`), { force: true }); throw new Error(`a real user or computer name is on the page for ${name}; the picture was deleted`); }
+  console.log('shot', name);
 };
-const shot = async (/** @type {string} */ name) => { await page.evaluate(mask, realNames); await page.evaluate(() => window.scrollTo(0, 0)); await page.screenshot({ path: w.join(IMG, `${name}.png`), fullPage: true }); console.log('shot', name); };
-
 let failed = false;
 try {
   await page.goto(s.url);
+  // the list of selection files found in the user's own folders is a real path: it is hidden for every picture
   await waitText('#selinfo', /laptop-move-selection\.json/);
   await shot('01-start');
-  await page.click('[data-toc="tutorial"]'); await shot('02-tutorial');
-  await page.click('[data-toc="scan"]');
+    await page.click('[data-toc="scan"]');
   await page.fill('#scanroots', home);
   await page.uncheck('#scanapps');
   await page.click('#scango');
@@ -151,7 +175,6 @@ try {
   await page.waitForFunction(() => !document.querySelector('#repopen')?.hasAttribute('disabled'), null, { timeout: 300000 });
   await shot('13-report');
   await page.click('[data-toc="restoring"]'); await shot('14-restoring');
-  await page.click('[data-toc="help"]'); await shot('15-help');
 } catch (e) {
   failed = true;
   console.log('FAIL', String(/** @type {Error} */ (e).stack ?? e));
