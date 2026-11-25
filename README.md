@@ -174,6 +174,8 @@ The page in Edge, on sample data only (a dry run: Pack is never pressed). It nee
 node scripts/check-ui.mjs --playwright <folder holding node_modules\playwright-core>
 ```
 
+Before packing, `node scripts/auto-select.mjs [--dry] [--fetch] [--repo <name>] [--out <file>] [--selection <file>] [--scan-root "<a>;<b>"]` does the page's Scan, folder settings and Save: worktrees ticked (merged ones unticked), the named repositories forced to clone again + bundle/dirty, `.claude` and AIxOrchestrator copy whole; `--dry` prints and saves nothing.
+
 The mock page (docs/mock/laptop-mover-mock.html) in Edge: no page error, the start screen visible at load, every button showing its own screen (add `--file <html>` to check another copy):
 
 ```powershell
