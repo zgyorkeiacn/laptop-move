@@ -174,6 +174,12 @@ The page in Edge, on sample data only (a dry run: Pack is never pressed). It nee
 node scripts/check-ui.mjs --playwright <folder holding node_modules\playwright-core>
 ```
 
+The mock page (docs/mock/laptop-mover-mock.html) in Edge: no page error, the start screen visible at load, every button showing its own screen (add `--file <html>` to check another copy):
+
+```powershell
+node scripts/check-mock.mjs --playwright <folder holding node_modules\playwright-core>
+```
+
 From this folder, the type check:
 
 ```powershell
