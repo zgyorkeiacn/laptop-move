@@ -29,7 +29,7 @@ code{font-family:Consolas,monospace;font-size:13px}
 /** Row class from a status word. @param {unknown[]} row */
 function rowClass(row) {
   const s = String(row[1] ?? '').toLowerCase();
-  if (/^(failed|missing|stopped|refused)/.test(s)) return 'bad';
+  if (/^(failed|missing|stopped|refused|timed out)/.test(s)) return 'bad';
   if (/by hand|conflict|warning|skipped|not /.test(s)) return 'warn';
   if (/^(ok|installed|done|cloned|moved|created|restored|copied)/.test(s)) return 'good';
   return '';

@@ -2,7 +2,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { run } from './util.mjs';
+import { run, track, commandText, killTree } from './util.mjs';
 
 export const MIN_VERSION = { major: 26, minor: 3 };
 
@@ -71,12 +71,13 @@ export function extractArgs(firstPart, outDir) {
  * @param {string} exe
  * @param {string[]} args
  * @param {{cwd?: string, password?: string, confirm?: boolean, onPercent?: (pct: number) => void, timeout?: number}} [o]
- * @returns {Promise<{code: number, out: string}>}
+ * @returns {Promise<{code: number, out: string, timedOut?: boolean}>}
  */
 export function run7z(exe, args, o = {}) {
   if (args.some((a) => /^-p./.test(String(a)))) return Promise.reject(new Error('run7z: a password is never passed as an argument'));
   const pw = o.password ?? '';
   if (/[\r\n]/.test(pw)) return Promise.reject(new Error('run7z: the password cannot hold a line break'));
+  const ended = track(commandText(exe, args), o.timeout);
   return new Promise((resolve, reject) => {
     const child = spawn(exe, args, { cwd: o.cwd, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
     let tail = '';
@@ -93,13 +94,16 @@ export function run7z(exe, args, o = {}) {
     child.stdout.on('data', keep);
     child.stderr.on('data', keep);
     let timer = null;
-    if (o.timeout) timer = setTimeout(() => child.kill(), o.timeout);
-    child.on('error', (e) => { if (timer) clearTimeout(timer); reject(e); });
+    let timedOut = false;
+    if (o.timeout) timer = setTimeout(() => { timedOut = true; killTree(child); }, o.timeout);
+    child.on('error', (e) => { if (timer) clearTimeout(timer); ended({ code: -1 }); reject(e); });
     child.on('close', (code) => {
       if (timer) clearTimeout(timer);
       let out = tail.replaceAll('\b', '');
       if (pw) out = out.split(pw).join('***');
-      resolve({ code: code ?? 255, out: out.slice(-8192) });
+      const r = { code: timedOut ? 255 : code ?? 255, out: out.slice(-8192), timedOut };
+      ended(r);
+      resolve(r);
     });
     child.stdin.on('error', () => {});
     // 7-Zip reads the password once from a pipe; a second line (the confirmation a console would ask for) is harmless.

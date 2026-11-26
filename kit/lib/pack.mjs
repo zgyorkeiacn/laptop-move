@@ -301,10 +301,16 @@ async function makeKitZip(o) {
  */
 export async function officialNode(dest, work, emit) {
   const PUB = 'OpenJS Foundation';
-  const here = await signedBy(process.execPath, PUB);
-  if (here.ok) { await copyFile(process.execPath, dest); return { ok: true, why: 'this laptop\'s node.exe, signature valid' }; }
   const v = process.versions.node;
-  emit({ type: 'step', text: `this node.exe is not the signed official one (${here.why}): downloading Node ${v} from nodejs.org` });
+  // Laptop Mover.exe is node.exe with the launcher written into it: never the official file, whatever it is signed with.
+  const self = w.basename(process.execPath);
+  if (self.toLowerCase() !== 'node.exe') {
+    emit({ type: 'step', text: `the mover runs as ${self}, not node.exe: downloading Node ${v} from nodejs.org` });
+  } else {
+    const here = await signedBy(process.execPath, PUB);
+    if (here.ok) { await copyFile(process.execPath, dest); return { ok: true, why: 'this laptop\'s node.exe, signature valid' }; }
+    emit({ type: 'step', text: `this node.exe is not the signed official one (${here.why}): downloading Node ${v} from nodejs.org` });
+  }
   const file = w.join(work, 'node-download', 'node.exe');
   const d = await download(`https://nodejs.org/dist/v${v}/win-x64/node.exe`, file, { quiet: true });
   if (!d.ok) return { ok: false, why: d.why };

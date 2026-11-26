@@ -198,11 +198,15 @@
 <section class="screen"><div class="sbar"><span>Laptop mover</span><span>Restoring</span></div><div class="sbody">
 <h3>Restoring on the new laptop</h3>
 <p id="rsidle">Nothing is being restored. Start on the restore page.</p>
+<div class="seg" role="group" aria-label="How the restore is shown"><button type="button" data-rsview="steps" aria-pressed="true">Steps</button><button type="button" data-rsview="dash" aria-pressed="false">Dashboard</button></div>
+<div id="rsviewsteps">
 <table><thead><tr><th>Step</th><th>State</th></tr></thead><tbody id="rsphases"></tbody></table>
 <div class="bar mt" id="rsbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Restore"><i></i></div>
 <p class="mono" id="rstext"></p>
 <div class="log" id="rslog" aria-live="polite"></div>
-<p class="mono">An app is installed only when its signature is valid and matches the recorded publisher.</p>
+</div>
+<div id="rsviewdash" class="hide"><div id="rsdash" aria-live="polite"></div></div>
+<p class="mono">7-Zip comes first, then the parts are checked and unpacked, then the target folders are made (Windows may ask once for administrator rights), then the rest. Every step has a time limit: one that is not done by then is stopped, logged and skipped. An app is installed only when its signature is valid and matches the recorded publisher.</p>
 <div class="nav"><button class="btn ghost" type="button" data-go="restore">Back</button><button class="btn" type="button" data-go="report">Next: the report</button></div>
 </div></section></article>
 

@@ -4,19 +4,23 @@
 //   node kit.mjs pack     --selection <file> --out <folder>             old laptop: writes the parts and the kit zip
 //   .\node.exe kit.mjs restore --from <folder> [--dry-run]               new laptop: everything back in place
 //   .\node.exe kit.mjs apps [--dry-run]                                  new laptop: only the apps, one by one
+//   .\node.exe kit.mjs dashboard [--work <folder>]                       new laptop: where a running restore stands
 //   node kit.mjs ui                                                      the guided page on 127.0.0.1 (either laptop)
+//   Laptop Mover.exe [command]                                           the same, packaged (app\launcher.cjs); no command: ui
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { dryRun, pack, restore, restoreDryRun, appsOnly } from './lib/engine.mjs';
+import { dryRun, pack, restore, restoreDryRun, appsOnly, defaultWork } from './lib/engine.mjs';
 import { parseSize, fmtBytes } from './lib/util.mjs';
+import { appBrowser } from './lib/env.mjs';
 
 const w = path.win32;
 const kitDir = w.dirname(fileURLToPath(import.meta.url));
 
 const HELP = `Laptop move kit
 
-The guided page (either laptop; it opens in your browser, on this computer only):
-  node kit.mjs ui [--selection <file>] [--scan-root "<folder>;<folder>"] [--no-open]
+The guided page (either laptop; it opens in a Chrome or Edge app window, on this computer only):
+  "Laptop Mover.exe"                          the packaged app: double-click it, or run it with any command below
+  node kit.mjs ui [--selection <file>] [--scan-root "<folder>;<folder>"] [--no-open] [--no-app]
   .\\node.exe kit.mjs ui                      on the new laptop, in the unpacked kit folder
   It ends when you close the page, press End in it, or press Ctrl+C here.
 
@@ -27,6 +31,7 @@ Old laptop:
 New laptop (in the unpacked laptop-move-kit folder):
   .\\node.exe kit.mjs restore --from <folder with the parts> [--dry-run]
   .\\node.exe kit.mjs apps [--dry-run]
+  .\\node.exe kit.mjs dashboard [--work <folder>]   opens the dashboard of a running restore again
 
 Pack options:
   --selection <file>     the selection saved from the form (laptop-move-selection.json)
@@ -50,18 +55,32 @@ Restore options:
   --skip-apps            no app installs
   --skip-client          leave the client part out
   --npm-ci <all|folders> run npm ci --install-links in the restored repositories
+  --step-timeout <min>   time limit of one step: an install, a clone, a download (default 30; Build Tools get three
+                         times as much). A step not done by then is stopped, logged and skipped; the restore goes on
+  --no-dashboard         do not open the dashboard window (it shows where the restore stands; closing it never
+                         stops the restore)
   --no-open              do not open the report
   --dry-run              what it would do, nothing changed
+  Everything is logged to <work>\\restore-log.txt as it happens.
 
 Page options (ui):
   --selection, --rules, --no-client-rules, --no-app-lookup, --from, --work as above
   --scan-root <folders>  where the scan looks, ;-separated (default: your user folder and the system drive)
   --no-open              print the page's link instead of opening the browser
+  --no-app               open the page in a tab of the default browser, not in a Chrome or Edge app window
 `;
 
 /** Options that take a value. */
-const VALUED = new Set(['selection', 'rules', 'out', 'volume', 'inventory', 'from', 'work', 'target-root', 'npm-ci', 'scan-root']);
-const FLAGS = new Set(['client-data', 'allow-onedrive', 'no-client-rules', 'no-encrypt', 'fast', 'no-app-lookup', 'all', 'overwrite', 'skip-apps', 'skip-client', 'no-open', 'dry-run', 'help']);
+const VALUED = new Set(['selection', 'rules', 'out', 'volume', 'inventory', 'from', 'work', 'target-root', 'npm-ci', 'scan-root', 'step-timeout', 'status']);
+const FLAGS = new Set(['client-data', 'allow-onedrive', 'no-client-rules', 'no-encrypt', 'fast', 'no-app-lookup', 'all', 'overwrite', 'skip-apps', 'skip-client', 'no-open', 'no-app', 'dry-run', 'no-dashboard', 'help']);
+
+/** --step-timeout in minutes, as milliseconds. @param {string|boolean|undefined} v */
+export function stepTimeout(v) {
+  if (v === undefined) return undefined;
+  const m = Number(v);
+  if (!Number.isFinite(m) || m < 1 || m > 24 * 60) throw new Error(`--step-timeout takes minutes, 1 to 1440 (not ${v})`);
+  return Math.round(m * 60 * 1000);
+}
 
 /**
  * Parses the command line. Unknown options are an error, so a typo never runs a pack with defaults.
@@ -144,6 +163,8 @@ function restoreOptions(o) {
     open: !o['no-open'],
     dryRun: !!o['dry-run'],
     all: !!o.all,
+    stepTimeout: stepTimeout(/** @type {string|undefined} */ (o['step-timeout'])),
+    dashboard: o['no-dashboard'] ? false : 'window',
   };
 }
 
@@ -181,6 +202,12 @@ export async function main(argv) {
     if (o.dryRun) for (const a of r.results) console.log(`  ${a.status.padEnd(14)} ${a.name}  ${a.how}${a.detail ? ` ${a.detail}` : ''}`);
     return 0;
   }
+  if (command === 'dashboard') {
+    const { watchDashboard } = await import('./lib/dashboard.mjs');
+    const file = opts.status ? w.resolve(String(opts.status)) : w.join(opts.work ? w.resolve(String(opts.work)) : defaultWork(), 'restore-status.json');
+    await watchDashboard(file);
+    return 0;
+  }
   if (command === 'ui') {
     const { startServer } = await import('./ui/server.mjs');
     const roots = opts['scan-root'] ? String(opts['scan-root']).split(';').map((s) => s.trim()).filter(Boolean).map((p) => w.resolve(p)) : undefined;
@@ -194,11 +221,13 @@ export async function main(argv) {
       from: opts.from ? w.resolve(String(opts.from)) : undefined,
       work: opts.work ? w.resolve(String(opts.work)) : undefined,
       open: !opts['no-open'],
+      app: !opts['no-app'],
       log: (t) => console.log(t),
     });
+    const where = opts['no-app'] || !appBrowser() ? 'in your browser' : 'in a Chrome/Edge app window';
     console.log(opts['no-open']
       ? `Open this link in your browser (it works once, on this computer only):\n  ${s.url}`
-      : `The page is open in your browser (on this computer only, port ${s.port}). If it did not open, open this link once:\n  ${s.url}`);
+      : `The page is open ${where} (on this computer only, port ${s.port}). If it did not open, open this link once:\n  ${s.url}`);
     console.log('Close the page, press End in it, or press Ctrl+C here to end the mover.');
     const stop = () => { console.log('\nEnding the mover.'); void s.close(); };
     process.once('SIGINT', stop);
@@ -207,7 +236,7 @@ export async function main(argv) {
     console.log('The mover has ended.');
     return 0;
   }
-  throw new Error(`unknown command ${command} (dry-run, pack, restore, apps, ui, help)`);
+  throw new Error(`unknown command ${command} (dry-run, pack, restore, apps, dashboard, ui, help)`);
 }
 
 const invoked = process.argv[1] && w.resolve(process.argv[1]).toLowerCase() === fileURLToPath(import.meta.url).toLowerCase();

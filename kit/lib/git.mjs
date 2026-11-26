@@ -4,7 +4,7 @@
 import { existsSync } from 'node:fs';
 import { writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import { run, runInherit } from './util.mjs';
+import { run, runLive } from './util.mjs';
 import { redactUrl } from './filters.mjs';
 
 const w = path.win32;
@@ -122,9 +122,14 @@ export async function stashPatch(dir, ref, file) {
   return true;
 }
 
-/** Git on the new laptop, its output on the user's console. @param {string} cwd @param {string[]} args */
-export function gitLive(cwd, args) {
-  return runInherit('git', args, { cwd });
+/**
+ * Git on the new laptop, its output on the user's console (Git Credential Manager may ask for a sign-in), within a
+ * time limit: a clone that hangs on a sign-in nobody answers is stopped and reported as timed out.
+ * @param {string} cwd @param {string[]} args @param {{timeout?: number}} [o]
+ * @returns {Promise<{code: number, timedOut: boolean}>}
+ */
+export function gitLive(cwd, args, o = {}) {
+  return runLive('git', args, { cwd, timeout: o.timeout });
 }
 
 /** Git on the new laptop, output captured. @param {string} cwd @param {string[]} args */

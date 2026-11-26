@@ -194,6 +194,11 @@
     else if (j) j.events.push(ev);
     var h = HANDLERS[kind]; if (h && h.event) h.event(ev);
   }
+  function onStatus(kind, st) {
+    var j = S.jobs[kind];
+    if (j) j.status = st;
+    var h = HANDLERS[kind]; if (h && h.status) h.status(st);
+  }
   var es = null, esFails = 0;
   function connect() {
     if (S.ended) return;
@@ -204,6 +209,7 @@
       if (msg.type === 'hello') { if (msg.job) onJob(msg.job); }
       else if (msg.type === 'job') onJob(msg.job);
       else if (msg.type === 'event') onEvent(msg.kind, msg.event);
+      else if (msg.type === 'status') onStatus(msg.kind, msg.status);
       else if (msg.type === 'end') ended();
     };
     es.onerror = function () { if (++esFails > 5) ended(); };
@@ -580,11 +586,95 @@
     say('rsstat', 'starting');
     start('restore', body).then(function () { body = null; say('rsstat', 'restoring'); show('restoring'); }, function (e) { body = null; say('rsstat', errText(e), true); });
   });
-  var RS_PHASES = { check: 'Check the checksums', '7zip': 'Check 7-Zip', unpack: 'Unpack the parts', apps: 'Install applications', repos: 'Clone repositories again', folders: 'Put folders and settings back', worktrees: 'Worktrees', links: 'Links and junctions', npm: 'npm ci', extensions: 'Editor extensions' };
+  var RS_PHASES = { '7zip': '7-Zip (first: the parts need it)', check: 'Check the parts', unpack: 'Unpack the parts', targets: 'Make the target folders', apps: 'Install the apps', repos: 'Clone the repositories', folders: 'Put folders and settings back', worktrees: 'Worktrees', links: 'Links and junctions', npm: 'npm ci', extensions: 'Editor extensions', report: 'The report' };
   var rsPhases = phaseList('rsphases');
+
+  // Steps or Dashboard: the same restore, two views; the choice is kept in this browser when it can be.
+  var RS_VIEW_KEY = 'laptop-mover-restore-view';
+  function rsView(v) {
+    if (v !== 'dash') v = 'steps';
+    $('rsviewsteps').classList.toggle('hide', v !== 'steps');
+    $('rsviewdash').classList.toggle('hide', v !== 'dash');
+    [].forEach.call(document.querySelectorAll('[data-rsview]'), function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-rsview') === v ? 'true' : 'false'); });
+    try { localStorage.setItem(RS_VIEW_KEY, v); } catch { /* the choice is not kept: fine */ }
+  }
+  [].forEach.call(document.querySelectorAll('[data-rsview]'), function (b) { b.addEventListener('click', function () { rsView(b.getAttribute('data-rsview')); }); });
+  (function () { var v = null; try { v = localStorage.getItem(RS_VIEW_KEY); } catch { v = null; } rsView(v || 'steps'); })();
+
+  function hhmmss(t) { return new Date(t).toTimeString().slice(0, 8); }
+  function span(ms) {
+    var s = Math.max(0, Math.round((Number(ms) || 0) / 1000)), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
+    return h ? h + 'h ' + String(m).padStart(2, '0') + 'm' : m ? m + 'm ' + String(r).padStart(2, '0') + 's' : r + ' s';
+  }
+  function limitText(ms) { ms = Number(ms) || 0; return ms >= 60000 ? Math.round(ms / 60000) + ' min' : Math.max(1, Math.round(ms / 1000)) + ' s'; }
+  // Which step's results each tile counts (the engine's section names).
+  var RS_SECTION = { '7zip': 'sevenzip', check: 'parts', unpack: 'unpack', targets: 'targets', apps: 'apps', repos: 'repos', folders: 'units', worktrees: 'worktrees', links: 'links', npm: 'npm', extensions: 'extensions' };
+  var rsStatus = null;
+  function renderDash(st) {
+    if (st) rsStatus = st;
+    st = rsStatus;
+    var box = clear($('rsdash'));
+    if (!st) { box.appendChild(el('p', { class: 'small', text: 'The dashboard fills in once a restore has started.' })); return; }
+    var now = Date.now(), end = st.finishedAt || now;
+    var head = st.state === 'done' ? 'The restore has finished' : st.state === 'failed' ? 'The restore stopped' : 'The restore is running';
+    box.appendChild(el('div', { class: 'card ' + (st.state === 'done' ? 'ok' : st.state === 'failed' ? 'bad' : 'purple') },
+      el('strong', { text: head }), ', started ' + hhmmss(st.startedAt) + ', ' + span(end - st.startedAt) + (st.state === 'running' ? ' so far' : '') + (st.error ? ': ' + st.error : '') + '.',
+      st.log ? el('div', { class: 'small', text: 'Every step is logged in ' + st.log }) : null,
+      st.target ? el('div', { class: 'small', text: 'Trial: everything goes below ' + st.target }) : null));
+    var tiles = el('div', { class: 'tiles' });
+    (st.phases || []).forEach(function (p) {
+      var sec = (st.sections || {})[RS_SECTION[p.name]] || null, counts = sec ? sec.counts : {}, total = sec ? sec.total : null;
+      var n = { ok: 0, warn: 0, bad: 0 }, done = 0;
+      Object.keys(counts).forEach(function (k) { n[verdict(k)] += counts[k]; done += counts[k]; });
+      var stateTag = p.state === 'running' ? tag('pp', 'running') : p.state === 'done' ? tag('ok', 'done') : p.state === 'failed' ? tag('bad', 'stopped') : p.state === 'skipped' ? tag('grey', 'skipped') : tag('grey', 'waiting');
+      var t = el('div', { class: 'tile' + (p.state === 'running' ? ' run' : p.state === 'failed' || n.bad ? ' bad' : p.state === 'skipped' ? ' skip' : '') }, el('h5', null, el('span', { text: RS_PHASES[p.name] || p.label }), stateTag));
+      if (total) {
+        t.appendChild(el('div', { class: 'n', text: done + ' of ' + total }));
+        var b = el('div', { class: 'bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0', 'aria-label': p.label }, el('i'));
+        setBar(b, total ? done / total * 100 : 0);
+        t.appendChild(b);
+      } else if (p.state === 'running' && st.progress && st.progress.total) {
+        var pb = el('div', { class: 'bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0', 'aria-label': p.label }, el('i'));
+        setBar(pb, st.progress.done / st.progress.total * 100);
+        t.appendChild(pb);
+      }
+      if (done) t.appendChild(el('div', { class: 'small' }, [tag('ok', n.ok + ' ok'), n.warn ? [' ', tag('warn', n.warn + ' to check')] : null, n.bad ? [' ', tag('bad', n.bad + ' failed or timed out')] : null]));
+      var took = p.startedAt ? (p.endedAt || (p.state === 'running' ? now : p.startedAt)) - p.startedAt : 0;
+      if (p.startedAt) {
+        var left = '';
+        if (p.state === 'running' && total && done >= 3 && done < total) left = ', about ' + span((now - p.startedAt) / done * (total - done)) + ' left';
+        t.appendChild(el('div', { class: 'small', text: span(took) + left }));
+      }
+      tiles.appendChild(t);
+    });
+    box.appendChild(tiles);
+    if (st.state === 'running') {
+      var nowBox = el('div', { class: 'card' }, el('h4', { text: 'Now' }));
+      if (st.command) {
+        var ran = now - st.command.startedAt;
+        nowBox.appendChild(el('div', { class: 'dnow', text: st.command.text }));
+        nowBox.appendChild(el('div', { class: 'small' + (st.command.limit && ran > st.command.limit * 0.75 ? ' late' : ''), text: 'running for ' + span(ran) + (st.command.limit ? ', stopped and skipped after ' + limitText(st.command.limit) : '') }));
+      }
+      if (st.progress && st.progress.text) nowBox.appendChild(el('div', { class: 'small', text: (st.progress.total ? '[' + st.progress.done + ' of ' + st.progress.total + '] ' : '') + st.progress.text }));
+      if (st.step) nowBox.appendChild(el('div', { text: st.step }));
+      box.appendChild(nowBox);
+    }
+    var problems = st.problems || [], timed = st.timedOut || [];
+    var pb2 = el('div', { class: 'card' + (problems.length || timed.length ? ' warn' : '') }, el('h4', { text: 'Problems: ' + problems.length + ' failed or timed out' + (st.warnings ? ', ' + plural(st.warnings, 'warning') : '') }));
+    if (!problems.length && !timed.length) pb2.appendChild(el('p', { class: 'small', text: 'None so far.' }));
+    if (problems.length) pb2.appendChild(el('ul', { class: 'dlist' }, problems.slice(-12).reverse().map(function (x) { return el('li', null, tag('bad', x.status), ' ', el('strong', { text: x.name }), x.detail ? el('div', { class: 'small', text: x.detail }) : null); })));
+    if (timed.length) pb2.appendChild(el('div', { class: 'small', text: 'Stopped at their time limit and skipped: ' + timed.map(function (x) { return hhmmss(x.at) + ' ' + x.text; }).join('; ') }));
+    box.appendChild(pb2);
+    var recent = (st.recent || []).slice(-8).reverse();
+    if (recent.length) box.appendChild(el('div', { class: 'card' }, el('h4', { text: 'Last results' }), el('ul', { class: 'dlist' }, recent.map(function (x) { return el('li', null, tag(verdict(x.status), x.status), ' ', x.name); }))));
+  }
+  // the times on the dashboard move on between two snapshots
+  setInterval(function () { if (rsStatus && rsStatus.state === 'running' && !$('rsviewdash').classList.contains('hide')) renderDash(null); }, 1000);
+
   HANDLERS.restore = {
-    begin: function () { $('rsidle').classList.add('hide'); rsPhases.reset(); clear($('rslog')); setBar($('rsbar'), 0); mark('restoring', 'running'); },
-    update: function () { $('rsidle').classList.add('hide'); },
+    begin: function () { $('rsidle').classList.add('hide'); rsPhases.reset(); clear($('rslog')); setBar($('rsbar'), 0); rsStatus = null; renderDash(null); mark('restoring', 'running'); },
+    update: function (j) { $('rsidle').classList.add('hide'); if (j && j.status) renderDash(j.status); },
+    status: function (st) { $('rsidle').classList.add('hide'); renderDash(st); },
     event: function (ev) {
       $('rsidle').classList.add('hide');
       if (ev.type === 'phase') rsPhases.phase(ev.name + (ev.name === 'extensions' ? ev.text : ''), RS_PHASES[ev.name] && ev.name !== 'extensions' ? RS_PHASES[ev.name] : ev.text);
@@ -593,6 +683,7 @@
     },
     finish: function (j) {
       rsPhases.finish(j.state === 'done');
+      if (j.status) renderDash(j.status);
       if (j.state === 'failed') { say('rsstat', j.error, true); $('rstext').textContent = 'The restore stopped: ' + j.error; mark('restoring', 'failed'); return; }
       setBar($('rsbar'), 100);
       S.restore = j.result;
@@ -604,10 +695,10 @@
   };
 
   // ---- report ------------------------------------------------------------------------------------------------------
-  var SECTION_NAMES = { parts: 'Parts', apps: 'Applications', repos: 'Repositories', units: 'Folders and settings', links: 'Links and junctions', npm: 'npm ci', extensions: 'Editor extensions', conflicts: 'Files that already existed' };
+  var SECTION_NAMES = { parts: 'Parts', targets: 'Target folders', apps: 'Applications', repos: 'Repositories', units: 'Folders and settings', links: 'Links and junctions', npm: 'npm ci', extensions: 'Editor extensions', conflicts: 'Files that already existed' };
   function verdict(status) {
     var s = lc(status);
-    if (/fail|damag|missing|conflict|refus|error/.test(s)) return 'bad';
+    if (/fail|damag|missing|conflict|refus|error|timed out|stopped/.test(s)) return 'bad';
     if (/hand|skip|later|todo|warn|not in/.test(s)) return 'warn';
     return 'ok';
   }
@@ -619,7 +710,8 @@
     if (!r) return;
     var n = { ok: 0, warn: 0, bad: 0 };
     Object.keys(r.sections).forEach(function (k) { r.sections[k].forEach(function (x) { n[verdict(x.status)]++; }); });
-    add(tags, [tag('ok', n.ok + ' done'), ' ', tag('warn', n.warn + ' to do by hand'), ' ', tag('bad', n.bad + ' failed')]);
+    add(tags, [tag('ok', n.ok + ' done'), ' ', tag('warn', n.warn + ' to do by hand'), ' ', tag('bad', n.bad + ' failed or timed out')]);
+    if (r.log) add(tags, [' ', el('button', { class: 'btn ghost sm', type: 'button', onclick: function () { openPath(r.log, 'repstat'); } }, 'Open the log')]);
     Object.keys(r.sections).forEach(function (k) {
       var rows = r.sections[k];
       if (!rows.length) return;

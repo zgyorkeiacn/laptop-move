@@ -1,22 +1,29 @@
-// restore, on the new laptop: checks the parts, unpacks them (7-Zip asks for the password on the console, or reads the
-// one typed in the page through a pipe), installs the apps one by
-// one, clones the repositories and brings their local work back, puts folders and settings at their places, recreates
-// the junctions and writes a report. It never deletes a file it did not bring and never replaces one, except settings
-// (and every file with --overwrite): a replaced file is first copied to <work>\replaced.
+// restore, on the new laptop: makes sure 7-Zip is there first (the parts need it), checks the parts, unpacks them
+// (7-Zip asks for the password on the console, or reads the one typed in the page through a pipe), makes the final
+// folders (as administrator where needed), installs the apps one by one, clones the repositories and brings their local
+// work back, puts folders and settings at their places, recreates the junctions and writes a report.
+// Every command has a time limit (--step-timeout): one that is not done by then is stopped, logged and skipped, and the
+// restore goes on. Everything is logged to <work>\restore-log.txt as it happens; <work>\restore-status.json tells the
+// dashboards where the restore stands.
+// It never deletes a file it did not bring and never replaces one, except settings (and every file with --overwrite):
+// a replaced file is first copied to <work>\replaced.
 import { existsSync } from 'node:fs';
-import { copyFile, lstat, mkdir, readdir, readFile, rename, statfs, unlink, writeFile } from 'node:fs/promises';
+import { copyFile, lstat, mkdir, readdir, readFile, rename, rm, statfs, unlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { archiveRel, driveOf, isInside, mapPath, norm } from './paths.mjs';
 import { check7z, extractArgs, exitMeaning, run7z, lastLines } from './sevenzip.mjs';
-import { wingetAvailable, wingetInstall } from './winget.mjs';
-import { installApps, installFromLink, installExtensions, cmdLine } from './apps.mjs';
+import { wingetAvailable, wingetInstall, wingetCommand, installMeaning } from './winget.mjs';
+import { installApps, installFromLink, installExtensions, cmdLine, is7zip, lateText, TIMED_OUT } from './apps.mjs';
 import { refreshPath, openFile } from './env.mjs';
 import { gitLive, gitHere, applyRepoState, fetchBundle, dropTempRefs } from './git.mjs';
 import { planLinks, createLink } from './links.mjs';
 import { htmlReport } from './report.mjs';
 import { RATES } from './plan.mjs';
-import { run, runInherit, fmtBytes, fmtDuration, sha256File } from './util.mjs';
+import { run, runLive, onCommand, fmtBytes, fmtDuration, fmtLimit, sha256File, STEP_TIMEOUT } from './util.mjs';
+import { targetFolders, prepareFolders } from './targets.mjs';
+import { createStatus, openLog, RESTORE_PHASES, clock } from './status.mjs';
+import { openDashboardWindow } from './dashboard.mjs';
 
 const w = path.win32;
 
@@ -96,31 +103,51 @@ export async function checkParts(manifest, from, o = {}) {
 }
 
 /**
- * 7-Zip 26.03 or newer: installed through winget, or from the recorded installer when its signature holds.
+ * 7-Zip 26.03 or newer, before anything else (the parts cannot be unpacked without it): winget first (its own source
+ * only), then the installer link recorded on the old laptop (checksum and signature checked), each within the limit.
+ * Stops the restore when neither works.
  * @param {any} manifest
  * @param {string} work
  * @param {(e: any) => void} emit
+ * @param {number} limit
+ * @returns {Promise<{sz: {ok: boolean, exe: string, version: string|null}, row: Row}>}
  */
-async function ensure7z(manifest, work, emit) {
+export async function ensure7z(manifest, work, emit, limit) {
   let sz = await check7z();
-  if (sz.ok) return sz;
-  emit({ type: 'step', text: `${sz.why}: installing 7-Zip first` });
-  if (await wingetAvailable()) await wingetInstall('7zip.7zip');
-  else {
-    const rec = (manifest.apps ?? []).find((/** @type {any} */ a) => /^7zip\.7zip$/i.test(a.wingetId ?? ''));
-    if (rec) {
-      const r = await installFromLink(rec, work);
-      emit({ type: 'step', text: `7-Zip: ${r.status}${r.detail ? ` (${r.detail})` : ''}` });
-    }
+  if (sz.ok) return { sz, row: { name: '7-Zip', status: 'installed already', detail: `${sz.version}, ${sz.exe}` } };
+  emit({ type: 'step', text: `${sz.why}: installing 7-Zip first (the parts need it)` });
+  /** @type {string[]} */ const tried = [];
+  if (await wingetAvailable()) {
+    const r = await wingetInstall('7zip.7zip', { timeout: limit });
+    tried.push(`winget: ${r.timedOut ? `no answer after ${fmtLimit(limit)}, stopped` : installMeaning(r.code).text}`);
+    sz = await check7z();
+  } else tried.push('winget is missing');
+  const rec = (manifest.apps ?? []).find(is7zip);
+  if (!sz.ok && rec?.url) {
+    emit({ type: 'step', text: '7-Zip: trying the installer link recorded on the old laptop' });
+    const r = await installFromLink(rec, work, { timeout: limit });
+    tried.push(`the recorded link: ${r.status}${r.detail ? ` (${r.detail})` : ''}`);
+    sz = await check7z();
   }
-  sz = await check7z();
-  if (!sz.ok) throw new Error(`${sz.why}: install 7-Zip 26.03 or newer (Software Center, or winget install --id 7zip.7zip -e), then run restore again`);
-  return sz;
+  if (!sz.ok) throw new Error(`${sz.why} (${tried.join('; ')}): install 7-Zip 26.03 or newer (Software Center, or ${wingetCommand('7zip.7zip')}), then run restore again`);
+  emit({ type: 'step', text: `7-Zip ${sz.version}: installed` });
+  return { sz, row: { name: '7-Zip', status: 'installed before unpacking', detail: tried.join('; ') } };
+}
+
+/**
+ * How long one archive may take to unpack: six times the estimate at the planned rate, plus 15 minutes for typing the
+ * password, and never less than one step.
+ * @param {{parts: {size: number}[]}} a @param {number} step
+ */
+export function unpackLimit(a, step) {
+  const bytes = a.parts.reduce((s, p) => s + (Number(p.size) || 0), 0);
+  return Math.max(step, Math.round((bytes / RATES.unpackBps) * 6 * 1000) + 15 * 60 * 1000);
 }
 
 /**
  * Unpacks one split archive into <work>\unpacked\<name>. On the console a wrong password may be typed again (three
  * tries). With a password (from the user interface) 7-Zip reads it from a pipe, once: a wrong one stops the restore.
+ * 7-Zip is stopped when it takes longer than limit.
  * @param {any} a
  * @param {string} from
  * @param {string} work
@@ -128,15 +155,19 @@ async function ensure7z(manifest, work, emit) {
  * @param {boolean} encrypted
  * @param {(e: any) => void} emit
  * @param {string|null} [password]
+ * @param {number} [limit]
+ * @returns {Promise<{ok: boolean, dir: string, why?: string, warning?: string|null, again?: boolean, timedOut?: boolean}>}
  */
-export async function unpack(a, from, work, exe, encrypted, emit, password = null) {
+export async function unpack(a, from, work, exe, encrypted, emit, password = null, limit = unpackLimit(a, STEP_TIMEOUT)) {
   const dir = w.join(work, 'unpacked', a.name);
   const marker = w.join(work, 'unpacked', `${a.name}.done`);
   if (existsSync(marker)) return { ok: true, dir, again: true };
+  const late = { ok: false, dir, why: `7-Zip was not done after ${fmtLimit(limit)}: stopped`, timedOut: true };
   if (password !== null) {
     emit({ type: 'progress', done: 0, total: 100, text: `unpacking ${a.name}`, part: a.name });
-    const r = await run7z(exe, extractArgs(w.join(from, a.parts[0].file), dir), { password: encrypted ? password : '',
+    const r = await run7z(exe, extractArgs(w.join(from, a.parts[0].file), dir), { password: encrypted ? password : '', timeout: limit,
       onPercent: (pct) => emit({ type: 'progress', done: pct, total: 100, text: `unpacking ${a.name}`, part: a.name }) });
+    if (r.timedOut) return late;
     if (r.code === 0 || r.code === 1) {
       await writeFile(marker, `${new Date().toISOString()}\n`, 'utf8');
       return { ok: true, dir, warning: r.code === 1 ? exitMeaning(1) : null };
@@ -145,14 +176,15 @@ export async function unpack(a, from, work, exe, encrypted, emit, password = nul
     return { ok: false, dir, why: `${exitMeaning(r.code)}${lastLines(r.out) ? ` (${lastLines(r.out)})` : ''}` };
   }
   for (let attempt = 1; attempt <= 3; attempt++) {
-    if (encrypted) emit({ type: 'step', text: `7-Zip asks for the password of ${a.name} now (the one you typed when packing)` });
-    const code = await runInherit(exe, extractArgs(w.join(from, a.parts[0].file), dir));
-    if (code === 0 || code === 1) {
+    if (encrypted) emit({ type: 'step', text: `7-Zip asks for the password of ${a.name} now, in this console window (the one you typed when packing)` });
+    const r = await runLive(exe, extractArgs(w.join(from, a.parts[0].file), dir), { timeout: limit });
+    if (r.timedOut) return late;
+    if (r.code === 0 || r.code === 1) {
       await writeFile(marker, `${new Date().toISOString()}\n`, 'utf8');
-      return { ok: true, dir, warning: code === 1 ? exitMeaning(1) : null };
+      return { ok: true, dir, warning: r.code === 1 ? exitMeaning(1) : null };
     }
-    if (code === 2 && encrypted && attempt < 3) { emit({ type: 'warn', text: `${a.name}: wrong password or a damaged part; try again` }); continue; }
-    return { ok: false, dir, why: exitMeaning(code) };
+    if (r.code === 2 && encrypted && attempt < 3) { emit({ type: 'warn', text: `${a.name}: wrong password or a damaged part; try again` }); continue; }
+    return { ok: false, dir, why: exitMeaning(r.code) };
   }
   return { ok: false, dir, why: 'three wrong passwords' };
 }
@@ -250,9 +282,35 @@ async function overlayDirty(rec, dest, up, problems) {
 }
 
 /**
+ * What restoring a repository needs: the path mapping, the unpacked parts, the events and the step limit.
+ * @typedef {{mapping: any, up: ReturnType<typeof unpackedView>, emit: (e: any) => void, timeout: number}} RepoCtx
+ */
+
+/**
+ * git clone into a missing or empty folder, within the step limit. A clone stopped at its limit is removed again (all
+ * of it came from that clone): the folder is left as it was, missing or empty, so the next restore can clone it again.
+ * @param {string} dest @param {string[]} args @param {RepoCtx} ctx
+ */
+async function cloneInto(dest, args, ctx) {
+  const had = existsSync(dest);
+  await mkdir(w.dirname(dest), { recursive: true });
+  const r = await gitLive(w.dirname(dest), args, { timeout: ctx.timeout });
+  if (r.timedOut) {
+    await rm(dest, { recursive: true, force: true }).catch(() => {});
+    if (had) await mkdir(dest, { recursive: true }).catch(() => {});
+  }
+  return r;
+}
+
+/** The detail of a clone stopped at its limit. @param {string} origin @param {string} dest @param {number} limit */
+function cloneLate(origin, dest, limit) {
+  return lateText(limit, `a sign-in window may have been waiting: clone ${origin} into ${dest} yourself, or run restore again`);
+}
+
+/**
  * Clones one repository and brings its local work back.
  * @param {any} rec
- * @param {{mapping: any, up: ReturnType<typeof unpackedView>, emit: (e: any) => void}} ctx
+ * @param {RepoCtx} ctx
  * @returns {Promise<Row & {dest: string}>}
  */
 async function restoreRepo(rec, ctx) {
@@ -265,15 +323,17 @@ async function restoreRepo(rec, ctx) {
   if (existsSync(w.join(dest, '.git'))) notes.push('a repository was there already: not cloned again');
   else {
     if (existsSync(dest) && (await readdir(dest)).length) return row('by hand', `${dest} is not empty and not a repository: clone ${rec.origin} yourself`);
-    await mkdir(w.dirname(dest), { recursive: true });
     ctx.emit({ type: 'step', text: `git clone ${rec.origin} (Git Credential Manager may ask you to sign in)` });
-    const code = await gitLive(w.dirname(dest), ['clone', '--recurse-submodules', '-o', originName, rec.origin, dest]);
-    if (code !== 0) return row('failed', `git clone exit ${code}`);
+    const c = await cloneInto(dest, ['clone', '--recurse-submodules', '-o', originName, rec.origin, dest], ctx);
+    if (c.timedOut) return row(TIMED_OUT, cloneLate(rec.origin, dest, ctx.timeout));
+    if (c.code !== 0) return row('failed', `git clone exit ${c.code}`);
     notes.push('cloned');
     for (const r of rec.remotes ?? []) {
       if (r.name === originName) continue;
       await gitHere(dest, ['remote', 'add', r.name, r.url]);
-      if ((await gitLive(dest, ['fetch', r.name])) !== 0) problems.push(`remote ${r.name}: fetch failed`);
+      const f = await gitLive(dest, ['fetch', r.name], { timeout: ctx.timeout });
+      if (f.timedOut) problems.push(`remote ${r.name}: fetch stopped after ${fmtLimit(ctx.timeout)}`);
+      else if (f.code !== 0) problems.push(`remote ${r.name}: fetch failed`);
     }
   }
   const stage = ctx.up.stage(rec.group);
@@ -289,7 +349,7 @@ async function restoreRepo(rec, ctx) {
 /**
  * Brings back a worktree: its main repository first (copied or cloned), then git worktree add.
  * @param {any} rec
- * @param {{mapping: any, up: ReturnType<typeof unpackedView>, emit: (e: any) => void}} ctx
+ * @param {RepoCtx} ctx
  * @returns {Promise<Row & {dest: string}>}
  */
 async function restoreWorktree(rec, ctx) {
@@ -301,9 +361,9 @@ async function restoreWorktree(rec, ctx) {
   if (!existsSync(w.join(main, '.git'))) {
     if (!rec.origin) return row('by hand', `its main repository ${main} is missing`);
     if (existsSync(main) && (await readdir(main)).length) return row('by hand', `${main} is not empty and not a repository`);
-    await mkdir(w.dirname(main), { recursive: true });
-    const code = await gitLive(w.dirname(main), ['clone', '--recurse-submodules', rec.origin, main]);
-    if (code !== 0) return row('failed', `git clone of the main repository exit ${code}`);
+    const c = await cloneInto(main, ['clone', '--recurse-submodules', rec.origin, main], ctx);
+    if (c.timedOut) return row(TIMED_OUT, `the main repository: ${cloneLate(rec.origin, main, ctx.timeout)}`);
+    if (c.code !== 0) return row('failed', `git clone of the main repository exit ${c.code}`);
   }
   if (existsSync(dest) && (await readdir(dest)).length) return row('by hand', `${dest} is not empty: git worktree add needs an empty folder`);
   const stage = ctx.up.stage(rec.group);
@@ -387,6 +447,11 @@ export async function restoreDryRun(o) {
   L.push(`Parts folder: ${from}`);
   L.push(`Work folder: ${work}`);
   L.push(`User folder: ${manifest.oldProfile} -> ${mapping.newProfile}${mapping.targetRoot ? ` (trial: everything below ${mapping.targetRoot})` : ''}`);
+  const step = o.stepTimeout ?? STEP_TIMEOUT;
+  L.push(`Time limit of one step (an install, a clone, a download): ${fmtLimit(step)} (--step-timeout <minutes>); a step not done by then is stopped, logged and skipped`);
+  L.push(`Log: ${w.join(work, 'restore-log.txt')}; dashboard: ${o.dashboard === false ? 'off (--no-dashboard)' : 'a console window of its own (--no-dashboard leaves it closed)'}`);
+  const sz = await check7z();
+  L.push('', `7-Zip, first of all: ${sz.ok ? `${sz.version}, ok` : `${sz.why}: restore installs it before anything else (winget, else the recorded installer)`}`);
   const parts = await checkParts(manifest, from, { skipClient: o.skipClient });
   section('Parts', parts.rows.map((r) => `${r.status.padEnd(8)} ${r.name}  ${r.detail}`));
   for (const a of parts.archives) {
@@ -394,14 +459,16 @@ export async function restoreDryRun(o) {
     if (a.group === 'client') L.push(`  The client part ${a.name} is ${a.status}: restore would go on without it.`);
     else problems.push(`data part ${a.name} is ${a.status}`);
   }
-  const sz = await check7z();
-  L.push('', `7-Zip: ${sz.ok ? `${sz.version}, ok` : `${sz.why}: restore installs it first`}`);
   const bytes = manifest.totals.data + (o.skipClient ? 0 : manifest.totals.client);
   const free = await freeOn(work);
   L.push(`Unpacked size about ${fmtBytes(bytes)}; free on ${driveOf(work)}: ${free == null ? '?' : fmtBytes(free)}; unpacking about ${fmtDuration(bytes / RATES.unpackBps)}`);
   if (free != null && free < bytes * 1.3) problems.push(`not enough free space on ${driveOf(work)}: (about ${fmtBytes(bytes * 1.3)} needed)`);
+  const folders = targetFolders(manifest, mapping);
+  const missing = folders.filter((f) => !existsSync(f));
+  section('Target folders, made first (by prepare-folders.ps1; Windows asks for administrator rights once if one needs them)', folders.map((f) => `${existsSync(f) ? 'there   ' : 'make    '} ${f}`));
+  if (missing.length) L.push(`  ${missing.length} of ${folders.length} are not there yet.${manifest.hasClientPart ? ' The client part\'s folders are added after unpacking.' : ''}`);
   if (!o.skipApps) {
-    const apps = await installApps(manifest.apps ?? [], { work, dryRun: true });
+    const apps = await installApps((manifest.apps ?? []).filter((/** @type {any} */ a) => !is7zip(a)), { work, dryRun: true });
     section('Apps, one by one', apps.map((a) => `${a.status.padEnd(14)} ${a.name}  ${a.how}${a.detail ? ` ${a.detail}` : ''}`));
   } else L.push('', 'Apps: skipped (--skip-apps)');
   const repos = manifest.repos;
@@ -422,22 +489,90 @@ export async function restoreDryRun(o) {
 }
 
 /**
- * Restores everything on the new laptop.
- * @param {any} o {kitDir, from, work, targetRoot, overwrite, skipApps, skipClient, npmCi, open}
+ * Restores everything on the new laptop. Every event also goes to the log and the status file, every command the kit
+ * starts is logged with how it ended, and the dashboard window opens (o.dashboard === 'window').
+ * @param {any} o {kitDir, from, work, targetRoot, overwrite, skipApps, skipClient, npmCi, open, stepTimeout, dashboard, getPassword}
  * @param {(e: any) => void} [emit]
  */
 export async function restore(o, emit = () => {}) {
-  const { from, manifest, work, mapping } = await open(o);
+  const opened = await open(o);
+  const { work, mapping, manifest } = opened;
+  await mkdir(work, { recursive: true });
+  const step = o.stepTimeout ?? STEP_TIMEOUT;
+  const logFile = w.join(work, 'restore-log.txt');
+  const statusFile = w.join(work, 'restore-status.json');
+  const log = openLog(logFile, [
+    `Laptop move restore, process ${process.pid}; packed on ${manifest.host}, ${manifest.createdAt}`,
+    `parts: ${opened.from}; work: ${work}${mapping.targetRoot ? `; trial below ${mapping.targetRoot}` : ''}; step limit ${fmtLimit(step)}`,
+  ]);
+  const status = createStatus({
+    file: statusFile,
+    phases: RESTORE_PHASES,
+    meta: { log: logFile, work, target: mapping.targetRoot ?? null, stepLimit: step },
+    onSnapshot: (s) => emit({ type: 'status', status: s }),
+  });
+  /** @param {any} e */
+  const tee = (e) => { log.event(e); status.apply(e); emit(e); };
+  const stopListening = onCommand((e) => { log.event(e); status.apply(e); });
+
+  // The dashboard window. On the console 7-Zip asks for the password in this window: a new window would take the
+  // keyboard from it, so the dashboard then opens once the parts are unpacked.
+  let dashOpen = o.dashboard !== 'window' || !o.kitDir;
+  const openDash = () => {
+    if (dashOpen) return;
+    dashOpen = true;
+    if (openDashboardWindow({ kitDir: o.kitDir, statusFile })) tee({ type: 'step', text: 'The dashboard is open in a window of its own (closing it never stops the restore; kit.mjs dashboard opens it again)' });
+    else tee({ type: 'warn', text: `the dashboard window did not open: run "kit.mjs dashboard --work ${work}" in another window` });
+  };
+  const asks = !!manifest.encrypted && typeof o.getPassword !== 'function'
+    && manifest.archives.some((/** @type {any} */ a) => !(o.skipClient && a.group === 'client') && !existsSync(w.join(work, 'unpacked', `${a.name}.done`)));
+  if (asks && !dashOpen) tee({ type: 'step', text: 'The dashboard window opens once the parts are unpacked: 7-Zip asks for the password in this window first' });
+  else openDash();
+
+  try {
+    const r = await runRestore(o, opened, tee, { step, status, logFile, onUnpacked: openDash });
+    status.finish({ ok: true, report: r.report });
+    return r;
+  } catch (e) {
+    const msg = String(/** @type {any} */ (e)?.message ?? e);
+    log.line(`STOPPED: ${msg}`);
+    status.finish({ ok: false, error: msg });
+    throw e;
+  } finally {
+    stopListening();
+  }
+}
+
+/**
+ * The steps of a restore, in their order.
+ * @param {any} o
+ * @param {Awaited<ReturnType<typeof open>>} opened
+ * @param {(e: any) => void} emit
+ * @param {{step: number, status: ReturnType<typeof createStatus>, logFile: string, onUnpacked: () => void}} x
+ */
+async function runRestore(o, opened, emit, x) {
+  const { from, manifest, work, mapping } = opened;
+  const { step, status } = x;
   const backupDir = w.join(work, 'replaced');
   /** @type {Record<string, Row[]>} */
-  const R = { parts: [], apps: [], repos: [], units: [], links: [], npm: [], extensions: [], conflicts: [] };
+  const R = { parts: [], targets: [], apps: [], repos: [], units: [], links: [], npm: [], extensions: [], conflicts: [] };
   /** @type {string[]} */ const warnings = [...manifest.warnings];
   const byHand = [...manifest.byHand];
-  await mkdir(work, { recursive: true });
+  /** One result: into its list for the report, and an item event for the log and the dashboards. @param {string} section @param {Row} row @param {Row[]} [list] */
+  const put = (section, row, list = R[section]) => {
+    list.push(row);
+    emit({ type: 'item', section, name: row.name, status: row.status, detail: row.detail });
+  };
+
+  emit({ type: 'phase', name: '7zip', text: '7-Zip first (the parts need it)' });
+  const seven = await ensure7z(manifest, work, emit, step);
+  const sz = seven.sz;
+  put('sevenzip', seven.row, R.apps);
 
   emit({ type: 'phase', name: 'check', text: 'Checking the parts' });
+  status.setTotal('parts', manifest.archives.reduce((/** @type {number} */ s, /** @type {any} */ a) => s + a.parts.length, 0));
   const parts = await checkParts(manifest, from, { hash: true, skipClient: o.skipClient, emit });
-  R.parts = parts.rows;
+  for (const r of parts.rows) put('parts', r);
   for (const a of parts.archives) {
     if (a.status === 'ok' || a.status === 'skipped' || a.group === 'client') continue;
     throw new Error(`data part ${a.name} is ${a.status}: put every part into ${from} (download it again), then run restore again`);
@@ -446,9 +581,6 @@ export async function restore(o, emit = () => {}) {
   const bytes = manifest.totals.data + (o.skipClient ? 0 : manifest.totals.client);
   const free = await freeOn(work);
   if (free != null && free < bytes * 1.3) throw new Error(`not enough free space on ${driveOf(work)}: (${fmtBytes(free)} free, about ${fmtBytes(bytes * 1.3)} needed)`);
-
-  emit({ type: 'phase', name: '7zip', text: '7-Zip' });
-  const sz = await ensure7z(manifest, work, emit);
 
   emit({ type: 'phase', name: 'unpack', text: 'Unpacking' });
   // With getPassword (the user interface), 7-Zip runs without a console and reads the password from a pipe.
@@ -460,17 +592,22 @@ export async function restore(o, emit = () => {}) {
   /** @type {{name: string, group: string, drive: string, dir: string, stageRel: string|null}[]} */
   const roots = [];
   const todo = parts.archives.filter((a) => a.status === 'ok').sort((a, b) => (a.group === b.group ? 0 : a.group === 'data' ? -1 : 1));
+  status.setTotal('unpack', todo.length);
   for (const a of todo) {
-    emit({ type: 'step', text: `${a.name}: ${a.parts.length} part${a.parts.length === 1 ? '' : 's'}` });
-    const u = await unpack(a, from, work, sz.exe, !!manifest.encrypted, emit, password);
+    const limit = unpackLimit(a, step);
+    emit({ type: 'step', text: `${a.name}: ${a.parts.length} part${a.parts.length === 1 ? '' : 's'} (at most ${fmtLimit(limit)})` });
+    const u = await unpack(a, from, work, sz.exe, !!manifest.encrypted, emit, password, limit);
     if (!u.ok) {
+      put('unpack', { name: a.name, status: u.timedOut ? TIMED_OUT : 'failed', detail: String(u.why ?? '') }, R.parts);
       if (a.group === 'client') { warnings.push(`client part ${a.name}: ${u.why}; restored without it`); continue; }
       throw new Error(`unpacking ${a.name} failed: ${u.why}. Run restore again; it continues where it stopped.`);
     }
     if (u.warning) warnings.push(`${a.name}: 7-Zip ${u.warning}`);
+    put('unpack', { name: a.name, status: u.again ? 'unpacked before' : 'unpacked', detail: u.warning ? `7-Zip ${u.warning}` : '' }, R.parts);
     roots.push({ name: a.name, group: a.group, drive: a.drive, dir: u.dir, stageRel: a.stageRel ?? null });
   }
   const up = unpackedView(roots);
+  x.onUnpacked();
 
   const clientStage = up.stage('client');
   if (clientStage && existsSync(w.join(clientStage, 'client-manifest.json'))) {
@@ -482,22 +619,33 @@ export async function restore(o, emit = () => {}) {
     warnings.push(...(cm.warnings ?? []));
   }
 
+  // The final folders, before anything is cloned or moved into them (as administrator where the user may not make them).
+  emit({ type: 'phase', name: 'targets', text: 'Making the target folders' });
+  const folders = targetFolders(manifest, mapping);
+  status.setTotal('targets', folders.length);
+  const prep = await prepareFolders(folders, { work, timeout: step, emit });
+  for (const r of prep.rows) put('targets', r);
+  if (prep.failed.length) warnings.push(`${prep.failed.length} target folder${prep.failed.length === 1 ? '' : 's'} could not be made or written to (see Target folders): what goes into them fails until they are; run ${prep.script} as administrator, then restore again`);
+
   if (!o.skipApps) {
     emit({ type: 'phase', name: 'apps', text: 'Apps, one by one' });
-    R.apps = (await installApps(manifest.apps ?? [], { work, emit })).map((a) => ({ name: a.name, status: a.status, detail: [a.how, a.detail].filter(Boolean).join(': ') }));
+    const list = (manifest.apps ?? []).filter((/** @type {any} */ a) => !is7zip(a));
+    status.setTotal('apps', list.reduce((/** @type {number} */ s, /** @type {any} */ a) => s + (a.kind === 'playwright' ? Math.max(1, (a.versions ?? []).length) : 1), 0));
+    R.apps.push(...(await installApps(list, { work, emit, timeout: step })).map((a) => ({ name: a.name, status: a.status, detail: [a.how, a.detail].filter(Boolean).join(': ') })));
     await refreshPath();
   }
 
   emit({ type: 'phase', name: 'repos', text: 'Repositories' });
   const gitOk = (await run('git', ['--version'], { timeout: 60000 })).code === 0;
-  const ctx = { mapping, up, emit };
+  /** @type {RepoCtx} */ const ctx = { mapping, up, emit, timeout: step };
   const plain = manifest.repos.filter((/** @type {any} */ r) => !r.worktreeOf).sort((/** @type {any} */ a, /** @type {any} */ b) => a.path.length - b.path.length);
+  status.setTotal('repos', plain.length);
   let n = 0;
   for (const rec of plain) {
     n++;
     emit({ type: 'progress', done: n, total: plain.length, text: rec.path });
     const row = gitOk ? await restoreRepo(rec, ctx).catch((e) => ({ name: rec.path, dest: '', status: 'failed', detail: String(e.message ?? e) })) : { name: rec.path, dest: '', status: 'by hand', detail: 'git is not installed' };
-    R.repos.push(row);
+    put('repos', row);
     emit({ type: 'step', text: `${rec.path}: ${row.status}` });
   }
 
@@ -507,6 +655,7 @@ export async function restore(o, emit = () => {}) {
   const repoRels = manifest.repos.map((/** @type {any} */ r) => archiveRel(r.path));
   const stageRels = roots.filter((r) => r.stageRel).map((r) => ({ drive: r.drive, rel: /** @type {string} */ (r.stageRel) }));
   const units = [...manifest.units].sort((a, b) => b.path.length - a.path.length);
+  status.setTotal('units', units.length);
   n = 0;
   for (const u of units) {
     n++;
@@ -531,58 +680,73 @@ export async function restore(o, emit = () => {}) {
     }
     for (const c of acc.conflicts) R.conflicts.push({ name: c, status: 'conflict', detail: `kept the file that was there; the old laptop's copy stays in ${w.join(work, 'unpacked')}` });
     const detail = [`${acc.moved} moved`, acc.replaced ? `${acc.replaced} replaced (kept in ${backupDir})` : '', acc.conflicts.length ? `${acc.conflicts.length} conflicts` : '', ...acc.errors.slice(0, 5)].filter(Boolean).join(', ');
-    R.units.push({ name: `${u.path} -> ${dest}`, status: acc.errors.length ? 'warning' : acc.moved || acc.replaced ? 'restored' : acc.conflicts.length ? 'conflict' : 'not in the parts', detail });
+    put('units', { name: `${u.path} -> ${dest}`, status: acc.errors.length ? 'warning' : acc.moved || acc.replaced ? 'restored' : acc.conflicts.length ? 'conflict' : 'not in the parts', detail });
   }
 
   const worktrees = manifest.repos.filter((/** @type {any} */ r) => r.worktreeOf);
   if (worktrees.length) {
     emit({ type: 'phase', name: 'worktrees', text: 'Worktrees' });
+    status.setTotal('worktrees', worktrees.length);
     for (const rec of worktrees) {
       const row = gitOk ? await restoreWorktree(rec, ctx).catch((e) => ({ name: rec.path, dest: '', status: 'failed', detail: String(e.message ?? e) })) : { name: rec.path, dest: '', status: 'by hand', detail: 'git is not installed' };
-      R.repos.push(row);
+      put('worktrees', row, R.repos);
       emit({ type: 'step', text: `${rec.path}: ${row.status}` });
     }
   }
 
   emit({ type: 'phase', name: 'links', text: 'Links and junctions' });
-  for (const l of planLinks(manifest.links, mapping)) {
+  const planned = planLinks(manifest.links, mapping);
+  status.setTotal('links', planned.length);
+  for (const l of planned) {
     const r = await createLink(l);
     const missing = r.ok && !r.skipped && !existsSync(w.resolve(w.dirname(l.link), l.target));
     const detail = missing ? 'the target is not there yet (it was not in the parts: build output, or a folder elsewhere); the link works once it exists' : r.why ?? '';
-    R.links.push({ name: `${l.link} -> ${l.target}`, status: r.skipped ? 'skipped' : r.ok ? 'created' : 'failed', detail });
+    put('links', { name: `${l.link} -> ${l.target}`, status: r.skipped ? 'skipped' : r.ok ? 'created' : 'failed', detail });
   }
 
   const want = o.npmCi ?? (manifest.deps?.npmCi?.length ? manifest.deps.npmCi : null);
   if (want) {
     emit({ type: 'phase', name: 'npm', text: 'npm ci' });
     await refreshPath();
-    for (const dir of npmCiDirs(manifest, mapping, want)) {
+    const dirs = npmCiDirs(manifest, mapping, want);
+    status.setTotal('npm', dirs.length);
+    for (const dir of dirs) {
       const c = cmdLine('npm ci --install-links');
-      const code = await runInherit(c.file, c.args, { cwd: dir, verbatim: true });
-      R.npm.push({ name: dir, status: code === 0 ? 'done' : 'failed', detail: code === 0 ? '' : `npm exit ${code}` });
+      const r = await runLive(c.file, c.args, { cwd: dir, verbatim: true, timeout: step, label: `npm ci --install-links (in ${dir})` });
+      if (r.timedOut) put('npm', { name: dir, status: TIMED_OUT, detail: lateText(step, `run npm ci --install-links in ${dir} yourself`) });
+      else put('npm', { name: dir, status: r.code === 0 ? 'done' : 'failed', detail: r.code === 0 ? '' : `npm exit ${r.code}` });
     }
   }
 
   if (!o.skipApps) {
-    for (const editor of /** @type {const} */ (['code', 'cursor'])) {
-      const ids = manifest.extensions?.[editor] ?? [];
-      if (!ids.length) continue;
+    const editors = /** @type {const} */ (['code', 'cursor']).filter((e) => (manifest.extensions?.[e] ?? []).length);
+    status.setTotal('extensions', editors.reduce((s, e) => s + manifest.extensions[e].length, 0));
+    for (const editor of editors) {
+      const ids = manifest.extensions[editor];
       emit({ type: 'phase', name: 'extensions', text: `${editor} extensions` });
       const c = cmdLine(`${editor} --version`);
       if ((await run(c.file, c.args, { verbatim: true, timeout: 60000 })).code !== 0) {
-        R.extensions.push({ name: editor, status: 'by hand', detail: `${editor} is not installed yet: install it, then run restore again` });
+        put('extensions', { name: editor, status: 'by hand', detail: `${editor} is not installed yet: install it, then run restore again` });
         continue;
       }
-      R.extensions.push(...(await installExtensions(editor, ids)).map((x) => ({ name: x.name, status: x.status, detail: x.detail })));
+      R.extensions.push(...(await installExtensions(editor, ids, { timeout: step, emit })).map((x) => ({ name: x.name, status: x.status, detail: x.detail })));
     }
   }
 
+  emit({ type: 'phase', name: 'report', text: 'The report' });
   const report = w.join(work, 'restore-report.html');
   const rows = (/** @type {Row[]} */ list) => list.map((r) => [r.name, r.status, r.detail]);
-  await writeFile(report, htmlReport('Laptop move: restore report', `${new Date().toLocaleString()}; packed on ${manifest.host}, ${manifest.createdAt}`, [
+  const timed = status.snapshot().timedOut;
+  await writeFile(report, htmlReport('Laptop move: restore report', `${new Date().toLocaleString()}; packed on ${manifest.host}, ${manifest.createdAt}; the log of every step: ${x.logFile}`, [
     { title: 'Your own steps', columns: ['Step'], rows: manifest.userSteps.map((/** @type {string} */ s) => [s]) },
     { title: 'Move by hand (these were never in the parts)', columns: ['Path', 'Why'], rows: byHand.map((b) => [b.path, `by hand: ${b.why}`]) },
+    {
+      title: 'Timed out (stopped and skipped)', columns: ['When', 'Command', 'Limit'], empty: 'none: every command ended within its limit',
+      intro: 'Each of these was stopped at its time limit, with every process it had started, and the restore went on. Run them yourself, or run restore again (add --step-timeout <minutes> for a longer limit).',
+      rows: timed.map((t) => [clock(t.at), t.text, t.limit ? fmtLimit(t.limit) : '']),
+    },
     { title: 'Parts', columns: ['Part', 'Status', 'Detail'], rows: rows(R.parts) },
+    { title: 'Target folders (made before anything was put into them)', columns: ['Folder', 'Status', 'Detail'], rows: rows(R.targets) },
     { title: 'Apps', columns: ['App', 'Status', 'How'], rows: rows(R.apps), empty: o.skipApps ? 'skipped (--skip-apps)' : 'none' },
     { title: 'Repositories', columns: ['Repository', 'Status', 'Detail'], rows: rows(R.repos) },
     { title: 'Folders, files and settings', columns: ['Path', 'Status', 'Detail'], rows: rows(R.units) },
@@ -594,25 +758,34 @@ export async function restore(o, emit = () => {}) {
   ]), 'utf8');
   emit({ type: 'done', text: `Restore finished. Report: ${report}. When everything is in place, delete ${w.join(work, 'unpacked')} and the downloaded parts.`, report });
   if (o.open !== false) openFile(report);
-  return { report, results: R, warnings };
+  return { report, results: R, warnings, log: x.logFile };
 }
 
 /**
- * Installs only the apps of the manifest, one by one, with a report.
- * @param {any} o {kitDir, from, work, dryRun, open}
+ * Installs only the apps of the manifest, one by one (7-Zip first), with a report and a log (<work>\apps-log.txt).
+ * @param {any} o {kitDir, from, work, dryRun, open, stepTimeout}
  * @param {(e: any) => void} [emit]
  */
 export async function appsOnly(o, emit = () => {}) {
   const { manifest, work } = await open(o);
   await mkdir(work, { recursive: true });
-  emit({ type: 'phase', name: 'apps', text: o.dryRun ? 'Apps, dry run' : 'Apps, one by one' });
-  const res = await installApps(manifest.apps ?? [], { work, dryRun: !!o.dryRun, emit });
-  if (o.dryRun) return { report: null, results: res };
-  const report = w.join(work, 'apps-report.html');
-  await writeFile(report, htmlReport('Laptop move: apps', new Date().toLocaleString(), [
-    { title: 'Apps', columns: ['App', 'Status', 'How', 'Detail'], rows: res.map((a) => [a.name, a.status, a.how, a.detail]) },
-  ]), 'utf8');
-  emit({ type: 'done', text: `Apps done. Report: ${report}`, report });
-  if (o.open !== false) openFile(report);
-  return { report, results: res };
+  const step = o.stepTimeout ?? STEP_TIMEOUT;
+  const log = o.dryRun ? null : openLog(w.join(work, 'apps-log.txt'), [`Laptop move apps, process ${process.pid}; step limit ${fmtLimit(step)}`]);
+  const stopListening = log ? onCommand((e) => log.event(e)) : () => {};
+  /** @param {any} e */
+  const tee = (e) => { log?.event(e); emit(e); };
+  try {
+    tee({ type: 'phase', name: 'apps', text: o.dryRun ? 'Apps, dry run' : 'Apps, one by one' });
+    const res = await installApps(manifest.apps ?? [], { work, dryRun: !!o.dryRun, emit: tee, timeout: step });
+    if (o.dryRun) return { report: null, results: res };
+    const report = w.join(work, 'apps-report.html');
+    await writeFile(report, htmlReport('Laptop move: apps', `${new Date().toLocaleString()}; the log of every step: ${log?.file}`, [
+      { title: 'Apps', columns: ['App', 'Status', 'How', 'Detail'], rows: res.map((a) => [a.name, a.status, a.how, a.detail]) },
+    ]), 'utf8');
+    tee({ type: 'done', text: `Apps done. Report: ${report}`, report });
+    if (o.open !== false) openFile(report);
+    return { report, results: res };
+  } finally {
+    stopListening();
+  }
 }

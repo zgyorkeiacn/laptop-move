@@ -14,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as defaultEngine from '../lib/engine.mjs';
-import { openFile } from '../lib/env.mjs';
+import { openFile, openAppWindow } from '../lib/env.mjs';
 import { parseSize } from '../lib/util.mjs';
 import { TOPICS, TOPIC_IDS, readTopic, topicNav, printableBody } from './guide-build.mjs';
 
@@ -48,6 +48,18 @@ export function cookies(header) {
 /** @param {string} s */
 function esc(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c);
+}
+
+/**
+ * A copy of a snapshot with a secret taken out of every text in it (the password, while a job runs).
+ * @param {any} v @param {(s: string) => string} scrub
+ * @returns {any}
+ */
+export function scrubDeep(v, scrub) {
+  if (typeof v === 'string') return scrub(v);
+  if (Array.isArray(v)) return v.map((x) => scrubDeep(x, scrub));
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, scrubDeep(x, scrub)]));
+  return v;
 }
 
 /** An error with an HTTP status. @param {number} status @param {string} message */
@@ -90,17 +102,17 @@ export function manifestSummary(m) {
   };
 }
 
-/** The restore result as the report screen shows it. @param {{report: string, results: Record<string, any[]>, warnings: string[]}} r */
+/** The restore result as the report screen shows it. @param {{report: string, results: Record<string, any[]>, warnings: string[], log?: string}} r */
 export function restoreSummary(r) {
   /** @type {Record<string, {name: string, status: string, detail: string}[]>} */ const sections = {};
   for (const [k, rows] of Object.entries(r.results)) sections[k] = rows.slice(0, 300).map((x) => ({ name: String(x.name ?? ''), status: String(x.status ?? ''), detail: String(x.detail ?? '') }));
-  return { report: r.report, sections, warnings: r.warnings };
+  return { report: r.report, log: r.log ?? null, sections, warnings: r.warnings };
 }
 
 /**
  * Starts the server.
  * @param {{kitDir?: string, selection?: string, rulesFile?: string, noClientRules?: boolean, scanRoots?: string[],
- *   appLookup?: boolean, open?: boolean, idleMs?: number, graceMs?: number, engine?: any, from?: string, work?: string,
+ *   appLookup?: boolean, open?: boolean, app?: boolean, idleMs?: number, graceMs?: number, engine?: any, from?: string, work?: string,
  *   log?: (s: string) => void}} [o]
  * @returns {Promise<{url: string, port: number, token: string, close: () => Promise<void>, closed: Promise<void>}>}
  */
@@ -128,13 +140,14 @@ export async function startServer(o = {}) {
   }
 
   // jobs: one at a time; its events go to every open page and the last ones are kept for a page that reconnects.
-  /** @type {{id: number, kind: string, state: string, events: any[], progress: any, result: any, error: string|null, startedAt: string, endedAt: string|null}|null} */
+  // A restore also sends its status snapshot (where it stands, for the page's dashboard view): the last one is kept.
+  /** @type {{id: number, kind: string, state: string, events: any[], progress: any, status: any, result: any, error: string|null, startedAt: string, endedAt: string|null}|null} */
   let job = null;
   let jobSeq = 0;
   /** @type {Set<http.ServerResponse>} */ const streams = new Set();
   /** @param {any} msg */
   const broadcast = (msg) => { const data = `data: ${JSON.stringify(msg)}\n\n`; for (const s of streams) s.write(data); };
-  const publicJob = (/** @type {typeof job} */ j) => (j ? { id: j.id, kind: j.kind, state: j.state, events: j.events, progress: j.progress, result: j.result, error: j.error, startedAt: j.startedAt, endedAt: j.endedAt } : null);
+  const publicJob = (/** @type {typeof job} */ j) => (j ? { id: j.id, kind: j.kind, state: j.state, events: j.events, progress: j.progress, status: j.status, result: j.result, error: j.error, startedAt: j.startedAt, endedAt: j.endedAt } : null);
   const running = () => job?.state === 'running';
 
   /**
@@ -144,11 +157,23 @@ export async function startServer(o = {}) {
    */
   const startJob = (kind, fn, scrub = (s) => s) => {
     if (running()) throw fail(409, `another task is running (${job?.kind}): wait until it ends`);
-    const j = { id: ++jobSeq, kind, state: 'running', events: /** @type {any[]} */ ([]), progress: null, result: null, error: /** @type {string|null} */ (null), startedAt: new Date().toISOString(), endedAt: /** @type {string|null} */ (null) };
+    const j = { id: ++jobSeq, kind, state: 'running', events: /** @type {any[]} */ ([]), progress: null, status: /** @type {any} */ (null), result: null, error: /** @type {string|null} */ (null), startedAt: new Date().toISOString(), endedAt: /** @type {string|null} */ (null) };
     job = j;
     let lastProgress = 0;
+    let lastStatus = 0;
+    /** @type {NodeJS.Timeout|null} */ let statusTimer = null;
+    const sendStatus = () => { statusTimer = null; lastStatus = Date.now(); broadcast({ type: 'status', job: j.id, kind, status: j.status }); };
     const emit = (/** @type {any} */ e) => {
       if (!e || typeof e !== 'object') return;
+      // Each item and command is in the status snapshot already: they are not kept as events (300 would soon be items).
+      if (e.type === 'item' || e.type === 'command') return;
+      if (e.type === 'status') {
+        j.status = scrubDeep(e.status, scrub);
+        if (statusTimer) return;
+        const wait = Math.max(0, 1000 - (Date.now() - lastStatus));
+        if (wait === 0 || j.status?.state !== 'running') sendStatus(); else statusTimer = setTimeout(sendStatus, wait);
+        return;
+      }
       /** @type {Record<string, any>} */ const ev = {};
       for (const k of ['type', 'name', 'text', 'done', 'total', 'part', 'out', 'report']) if (e[k] !== undefined) ev[k] = typeof e[k] === 'string' ? scrub(e[k]) : e[k];
       if (ev.type === 'progress') {
@@ -167,6 +192,7 @@ export async function startServer(o = {}) {
       j.state = 'failed';
       j.error = scrub(String(e?.message ?? e));
     }).finally(() => {
+      if (statusTimer) { clearTimeout(statusTimer); statusTimer = null; }
       j.endedAt = new Date().toISOString();
       broadcast({ type: 'job', job: publicJob(j) });
       idleCheck();
@@ -210,6 +236,8 @@ export async function startServer(o = {}) {
     work: b.work ? fullPath(b.work, 'the work folder') : o.work,
     targetRoot: b.targetRoot ? fullPath(b.targetRoot, 'the trial folder') : undefined,
     skipApps: !!b.skipApps, skipClient: !!b.skipClient, overwrite: !!b.overwrite, open: false,
+    // The page shows the dashboard itself (its Dashboard view): no console window.
+    dashboard: false,
   });
   /** A password from the body, checked; the body's copy is dropped. @param {any} b @param {boolean} confirm */
   const takePassword = (b, confirm) => {
@@ -328,6 +356,7 @@ export async function startServer(o = {}) {
           const r = await engine.restore({ ...opts, getPassword: pw.get }, emit);
           produced.add(String(r.report).toLowerCase());
           produced.add(w.dirname(String(r.report)).toLowerCase());
+          if (r.log) produced.add(String(r.log).toLowerCase());
           return restoreSummary(r);
         } finally { pw.drop(); }
       }, pw.scrub);
@@ -418,7 +447,7 @@ export async function startServer(o = {}) {
           return res.end();
         }
         if (hasSession) { res.writeHead(303, { Location: '/', 'Cache-Control': 'no-store' }); return res.end(); }
-        return deny(res, 403, 'This link was used already, or it is not the right one. Start the mover again (node kit.mjs ui) and use the link it opens.');
+        return deny(res, 403, 'This link was used already, or it is not the right one. Start the mover again (Laptop Mover.exe, or node kit.mjs ui) and use the link it opens.');
       }
       if (!hasSession) return deny(res, 403, 'Open the mover through the link it opened or printed when it started.');
 
@@ -493,7 +522,7 @@ export async function startServer(o = {}) {
   port = typeof addr === 'object' && addr ? addr.port : 0;
   const url = `http://127.0.0.1:${port}/?t=${token}`;
   idleCheck();
-  if (o.open !== false) openFile(url).catch(() => {});
+  if (o.open !== false) (o.app === false ? openFile(url) : openAppWindow(url)).catch(() => openFile(url).catch(() => {}));
   return { url, port, token, close, closed };
 }
 

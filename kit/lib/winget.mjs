@@ -1,9 +1,22 @@
 // winget: a read-only lookup on the old laptop (winget show), install on the new one (winget install).
 // The lookup also records the installer's official link, checksum and publisher, so the new laptop can download it
 // itself when winget is missing there.
-import { run, runInherit } from './util.mjs';
+import { run, runLive } from './util.mjs';
 
 const COMMON = ['--accept-source-agreements', '--disable-interactivity'];
+
+/**
+ * The one source a package is asked of: a Microsoft Store id (9N..., XP...) the msstore source, every other id the
+ * winget source. Without --source winget asks every source, and on a company network that blocks the Store source one
+ * failing source fails the whole call (0x8A15005E: on a new laptop every install failed that way).
+ * @param {string} id
+ */
+export function sourceOf(id) {
+  return /^(9[A-Z0-9]{11}|XP[A-Z0-9]{12})$/i.test(String(id)) ? 'msstore' : 'winget';
+}
+
+/** @param {string} id */
+const pick = (id) => ['--id', id, '-e', '--source', sourceOf(id)];
 
 /** winget's console output without its spinner: the last carriage-return segment of every line. @param {string} text */
 export function cleanLines(text) {
@@ -95,28 +108,38 @@ export async function wingetAvailable() {
 
 /** Read-only lookup of one package. @param {string} id */
 export async function wingetShow(id) {
-  const r = await run('winget', ['show', '--id', id, '-e', ...COMMON], { timeout: 120000 });
+  const r = await run('winget', ['show', ...pick(id), ...COMMON], { timeout: 120000 });
   return parseShow(r.stdout);
 }
 
 /** True when the package is installed already. @param {string} id */
 export async function wingetInstalled(id) {
-  const r = await run('winget', ['list', '--id', id, '-e', ...COMMON], { timeout: 120000 });
+  const r = await run('winget', ['list', ...pick(id), ...COMMON], { timeout: 120000 });
   return r.code === 0 && cleanLines(r.stdout).some((l) => l.toLowerCase().includes(id.toLowerCase()));
 }
 
 /**
- * Arguments for winget install.
+ * Arguments for winget install: the package's own source only.
  * @param {string} id
  * @param {{version?: string, override?: string}} [o]
  */
 export function installArgs(id, o = {}) {
-  return ['install', '--id', id, '-e', '--accept-package-agreements', ...COMMON, ...(o.version ? ['--version', o.version] : []), ...(o.override ? ['--override', o.override] : [])];
+  return ['install', ...pick(id), '--accept-package-agreements', ...COMMON, ...(o.version ? ['--version', o.version] : []), ...(o.override ? ['--override', o.override] : [])];
 }
 
-/** Installs one package, its progress on the user's console. @param {string} id @param {{version?: string, override?: string}} [o] */
+/**
+ * Installs one package, its progress on the user's console, within a time limit (an installer that waits for an answer
+ * nobody gives is stopped with winget).
+ * @param {string} id @param {{version?: string, override?: string, timeout?: number}} [o]
+ * @returns {Promise<{code: number, timedOut: boolean}>}
+ */
 export function wingetInstall(id, o = {}) {
-  return runInherit('winget', installArgs(id, o));
+  return runLive('winget', installArgs(id, o), { timeout: o.timeout });
+}
+
+/** The command a person types to install a package by hand. @param {string} id */
+export function wingetCommand(id) {
+  return `winget install --id ${id} -e --source ${sourceOf(id)}`;
 }
 
 /** Meaning of winget's exit code. @param {number} code */
@@ -126,5 +149,6 @@ export function installMeaning(code) {
   if (hex === '8A150061' || hex === '8A15002B') return { ok: true, text: 'installed already' };
   if (hex === '8A150109' || code === 3010) return { ok: true, text: 'installed, restart needed' };
   if (hex === '8A150014') return { ok: false, text: 'no package found with this id' };
+  if (hex === '8A15005E') return { ok: false, text: 'winget exit 0x8A15005E (a package source did not answer: a blocked network or proxy)' };
   return { ok: false, text: `winget exit 0x${hex}` };
 }

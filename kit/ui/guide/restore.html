@@ -1,5 +1,5 @@
 <h2>New laptop: restore</h2>
-<p>Do this on the new laptop, signed in as yourself. You do not need administrator rights for the mover itself, and you must not change the PowerShell execution policy: nothing here needs it.</p>
+<p>Do this on the new laptop, signed in as yourself. You do not need administrator rights for the mover itself, and you must not change the PowerShell execution policy: nothing here needs it. Only when a folder the restore puts things into may not be made by you (a folder directly on <code>C:\</code>, on some laptops), Windows asks once for permission to make it.</p>
 <h3>Get the files</h3>
 <ol>
 <li>Download the kit zip and all the parts from your Accenture OneDrive into one new folder, for example <code>C:\move</code>.</li>
@@ -19,10 +19,21 @@
 </ol>
 <figure class="fig"><img src="/guide/img/12-restore-check.png" width="1280" height="1200" alt="The restore screen after the check: the bundle is complete"><figcaption>The restore screen after <em>Check first</em>. (The sample was checked on the same machine, so the page also notes it is the old laptop.)</figcaption></figure>
 <h3>While it runs</h3>
-<p>The page moves to <em>Restore progress</em>. The mover works in this order: check the checksums, check 7-Zip (installed for you if missing), unpack the parts, install the applications one by one, clone the repositories again and put back their local commits, stashes and files, put the folders and settings back at the same paths, and recreate the links.</p>
+<p>The page moves to <em>Restore progress</em>. The mover works in this order:</p>
+<ol>
+<li>7-Zip first, because the parts cannot be opened without it: installed for you if it is missing (with winget, else with the installer recorded on the old laptop).</li>
+<li>Check the checksums, then unpack the parts.</li>
+<li>Make the folders the restore puts things into, before anything goes into them. If one of them needs administrator rights, Windows asks you once.</li>
+<li>Install the applications one by one.</li>
+<li>Clone the repositories again and put back their local commits, stashes and files.</li>
+<li>Put the folders and settings back at the same paths, and recreate the links.</li>
+</ol>
+<p>Choose how you see it with the switch at the top: <strong>Steps</strong> lists the steps and the messages, <strong>Dashboard</strong> shows each step's count and bar, what runs now and for how long, and every problem so far. Your choice is kept for the next time.</p>
 <figure class="fig"><img src="/guide/img/14-restoring.png" width="1280" height="800" alt="The restore progress screen with every step done"><figcaption>Restore progress, finished.</figcaption></figure>
-<p>An application is installed only when its signature is valid and matches the publisher recorded at packing time. If the restore stops, run it again: it continues where it stopped.</p>
+<p>An application is installed only when its signature is valid and matches the publisher recorded at packing time.</p>
+<p>Every step has a time limit: 30 minutes for an install, a clone or a download (three times as long for Visual Studio Build Tools). A step that is not done by then, for example an installer waiting for an answer, or a sign-in window nobody saw, is stopped, written down, and the restore goes on with the next one. The report lists what was stopped, under <em>Timed out</em>. Everything is written to <code>restore-log.txt</code> in the work folder as it happens. If the restore stops, run it again: it continues where it stopped.</p>
 <h3>Without the page</h3>
 <pre>.\node.exe kit.mjs restore --from C:\move --dry-run
 .\node.exe kit.mjs restore --from C:\move</pre>
-<p>7-Zip then asks for the password in the console. To try a restore without touching real places, add <code>--target-root C:\LaptopMove\trial --skip-apps</code>.</p>
+<p>7-Zip then asks for the password in the console. When the parts are unpacked, the dashboard opens in a window of its own, on top of the others, and shows where the restore stands. Closing it never stops the restore; <code>.\node.exe kit.mjs dashboard</code> opens it again, and <code>--no-dashboard</code> leaves it closed. <code>--step-timeout 60</code> gives every step 60 minutes instead of 30.</p>
+<p>To try a restore without touching real places, add <code>--target-root C:\LaptopMove\trial --skip-apps</code>.</p>

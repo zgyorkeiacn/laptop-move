@@ -312,6 +312,30 @@ test('restore asks for the password of an encrypted bundle, without a confirmati
   assert.ok(!JSON.stringify(j).includes(PASSWORD));
 });
 
+test('a restore sends its status for the dashboard view: kept on the job, the password scrubbed, items not kept as events', async (t) => {
+  const { d, api, settle, engine } = await session(t);
+  /** @type {any} */ let opts = null;
+  /** @type {any} */ (engine).restore = async (/** @type {any} */ o, /** @type {any} */ emit) => {
+    opts = o;
+    const pw = await o.getPassword();
+    emit({ type: 'phase', name: 'repos', text: 'Repositories' });
+    emit({ type: 'item', section: 'repos', name: 'C:\\git\\a', status: 'restored', detail: '' });
+    emit({ type: 'command', state: 'start', id: 1, text: 'git clone x', limit: 1000 });
+    emit({ type: 'status', status: { state: 'running', step: `7-Zip said: ${pw}`, phases: [{ name: 'repos', state: 'running' }], sections: { repos: { total: 2, counts: { restored: 1 } } } } });
+    return { report: w.join(d, 'restore', 'report.html'), log: w.join(d, 'restore', 'restore-log.txt'), results: { repos: [{ name: 'C:\\git\\a', status: 'restored', detail: '' }] }, warnings: [] };
+  };
+  const r = await api('restore', { password: PASSWORD });
+  assert.equal(r.status, 200, r.text);
+  const j = await settle();
+  assert.equal(j.state, 'done', j.error);
+  assert.equal(opts.dashboard, false, 'the page shows the dashboard itself: no console window');
+  assert.equal(j.status.step, '7-Zip said: ***', 'the snapshot is scrubbed');
+  assert.deepEqual(j.status.sections.repos, { total: 2, counts: { restored: 1 } });
+  assert.deepEqual(j.events.map((/** @type {any} */ e) => e.type), ['phase'], 'items and commands live in the snapshot only');
+  assert.equal(j.result.log, w.join(d, 'restore', 'restore-log.txt'));
+  assert.ok(!JSON.stringify(j).includes(PASSWORD));
+});
+
 test('open only opens what the mover wrote; folders are full local paths', async (t) => {
   const { api } = await session(t);
   const r = await api('open', { path: 'C:\\Windows\\System32\\notepad.exe' });

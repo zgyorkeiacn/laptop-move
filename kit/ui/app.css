@@ -79,6 +79,23 @@ select.mode{font:inherit;font-size:13px;padding:2px 4px;border:1px solid var(--g
 .pwrule.ok{color:var(--ok)}.pwrule.no{color:var(--g2)}
 .tablewrap{max-height:560px;overflow:auto;border:1px solid var(--g4)}
 .tablewrap table th{position:sticky;top:0}
+/* the restore screen: Steps or Dashboard, and the dashboard */
+.seg{display:inline-flex;border:2px solid var(--pdd);margin:0 0 12px}
+.seg button{font:inherit;font-weight:700;padding:5px 14px;border:0;background:#fff;color:var(--pdd);cursor:pointer}
+.seg button+button{border-left:2px solid var(--pdd)}
+.seg button[aria-pressed=true]{background:var(--pdd);color:#fff}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin:0 0 16px}
+.tile{border:1px solid var(--g4);background:#fff;padding:10px 12px;min-width:0}
+.tile.run{border:2px solid var(--p);background:var(--pll)}
+.tile.bad{border:2px solid var(--bad)}
+.tile.skip{color:var(--g3);background:var(--g5)}
+.tile h5{margin:0 0 6px;font-size:14px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+.tile .n{font-size:20px;font-weight:700;margin:2px 0}
+.tile .bar{height:8px;margin:4px 0}
+.dnow{font-family:Consolas,Menlo,monospace;font-size:13px;word-break:break-word}
+.small.late{color:var(--bad);font-weight:700}
+.dlist{list-style:none;padding:0;margin:0 0 12px}
+.dlist li{padding:3px 0;border-bottom:1px solid var(--g5);word-break:break-word}
 /* guide pages */
 body.plain{padding:0}
 .ghead{background:#000;color:#fff;padding:10px 20px}

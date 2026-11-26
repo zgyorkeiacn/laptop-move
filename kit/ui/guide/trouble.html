@@ -7,8 +7,18 @@
 <ul>
 <li><strong>Refused for its signature:</strong> the installer's signature is not valid or does not match the recorded publisher. This is on purpose. Install that application from the vendor's own page or from Software Center.</li>
 <li><strong>Software Center apps:</strong> these are only listed. Open Software Center and install them there.</li>
+<li><strong>winget failed:</strong> the mover then tries the installer recorded on the old laptop (checked the same way). To install one by hand, use winget's own source, which works on networks that block the Microsoft Store: <code>winget install --id &lt;id&gt; -e --source winget</code>.</li>
 <li><strong>Anything else:</strong> run the restore again (it continues where it stopped), or run only the installs with <code>.\node.exe kit.mjs apps</code>. You can also skip the applications and install them later.</li>
 </ul>
+<h3>A step timed out</h3>
+<p>A step that is not done within its time limit (30 minutes) is stopped, together with everything it started, and the restore goes on. The report lists it under <em>Timed out</em>, and <code>restore-log.txt</code> in the work folder shows the command and when it started.</p>
+<ul>
+<li><strong>An installer:</strong> it may have been waiting for an answer in a window behind the others. Run it again by hand, or run <code>.\node.exe kit.mjs apps</code>.</li>
+<li><strong>A clone:</strong> a sign-in window may have been waiting. Sign in, then run the restore again: what was restored already is kept.</li>
+<li><strong>A slow network:</strong> run the restore again with a longer limit, for example <code>--step-timeout 60</code>.</li>
+</ul>
+<h3>A target folder could not be made</h3>
+<p>The restore makes every folder it puts things into before it starts, with the script <code>prepare-folders.ps1</code> in the work folder. When you may not make a folder, Windows asks once for administrator rights. If you said no, or the rights were refused, the report lists the folder under <em>Target folders</em>. Ask IT to make it and give you write access, or run the script as administrator (its first lines say how), then run the restore again.</p>
 <h3>winget is missing</h3>
 <p>winget comes with App Installer. Open the Microsoft Store (or Software Center), install or update <em>App Installer</em>, open a new PowerShell window, and run <code>winget --version</code>. If it prints a version, run the restore again. Applications with a signed vendor download are installed without winget; the others are listed for you to install by hand.</p>
 <h3>7-Zip says the password is wrong</h3>
@@ -19,11 +29,11 @@
 <li><strong>New laptop:</strong> the check names the drive and the room needed (about 1.3 times the bundle size). Free some space or choose another work folder on a bigger local drive, then check again.</li>
 </ul>
 <h3>The page says the mover has ended</h3>
-<p>The mover stops when you close its page, or press <strong>End the mover</strong>. Run <code>node kit.mjs ui</code> (or <code>.\node.exe kit.mjs ui</code>) again for a new page.</p>
+<p>The mover stops when you close its page, or press <strong>End the mover</strong>. Start <strong>Laptop Mover.exe</strong> again, or run <code>node kit.mjs ui</code> (or <code>.\node.exe kit.mjs ui</code>), for a new page.</p>
 <h3>The page will not open, or says it needs the link</h3>
-<p>The link works once. Close the old tab and start the mover again, or use <code>--no-open</code> and paste the printed link into your browser.</p>
+<p>The link works once. Close the old window and start the mover again, or use <code>--no-open</code> and paste the printed link into your browser.</p>
 <h3>The output folder is refused</h3>
 <p>It is inside a OneDrive folder or a client folder. Pick a plain local folder such as <code>C:\LaptopMove\bundle</code>.</p>
 <h3>A repository did not clone</h3>
-<p>Sign in when Git Credential Manager asks, and check you are on the right network or VPN. Run the restore again; repositories already cloned are kept.</p>
+<p>Sign in when Git Credential Manager asks (its window may open behind the others), and check you are on the right network or VPN. A repository of another account (a personal or a client GitHub) needs a sign-in with that account. Run the restore again; repositories already cloned are kept. A clone that waited past its time limit is removed again, so the next run can clone it.</p>
 <div class="card purple">Still stuck? Keep the report and the text of the error and ask your IT support. Never send the password or the bundle.</div>

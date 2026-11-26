@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseShow, publisherMatches, subjectNames, installMeaning, installArgs, silentArgs, cleanLines } from '../lib/winget.mjs';
+import { parseShow, publisherMatches, subjectNames, installMeaning, installArgs, silentArgs, cleanLines, wingetCommand, sourceOf } from '../lib/winget.mjs';
 import { checksumFor, isCompanyApp, nodeMajor } from '../lib/apps.mjs';
 import { windowsPowerShellEnv } from '../lib/env.mjs';
 
@@ -60,6 +60,18 @@ test('install arguments and silent switches', () => {
   assert.deepEqual(silentArgs('msi', 'C:\\x.msi'), { file: 'msiexec.exe', args: ['/i', 'C:\\x.msi', '/passive', '/norestart'], interactive: false });
   assert.equal(silentArgs('msix', 'x'), null);
   assert.equal(silentArgs('exe', 'x')?.interactive, true);
+});
+
+test('each package is asked of its own source only: a blocked Microsoft Store source cannot fail a winget install', () => {
+  const a = installArgs('Git.Git');
+  const i = a.indexOf('--source');
+  assert.ok(i > 0 && a[i + 1] === 'winget', a.join(' '));
+  assert.equal(wingetCommand('7zip.7zip'), 'winget install --id 7zip.7zip -e --source winget');
+  assert.equal(sourceOf('9NBLGGH4NNS1'), 'msstore');
+  assert.equal(sourceOf('XP89DCGQ3K6VLD'), 'msstore');
+  assert.equal(sourceOf('Microsoft.VisualStudioCode'), 'winget');
+  assert.equal(sourceOf('9wzdncrfj3tj'), 'msstore');
+  assert.match(installMeaning(0x8A15005E | 0).text, /package source did not answer/);
 });
 
 test('apps: company apps listed only, Node majors, checksum lists', () => {

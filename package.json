@@ -8,7 +8,10 @@
     "node": ">=20"
   },
   "scripts": {
+    "start": "node kit/kit.mjs ui",
     "test": "node --test kit/test/*.spec.mjs",
-    "typecheck": "node C:/git_accenture/ai-agent-orchestrator/node_modules/typescript/bin/tsc -p ."
+    "typecheck": "node C:/git_accenture/ai-agent-orchestrator/node_modules/typescript/bin/tsc -p .",
+    "package": "node scripts/package.mjs",
+    "dist": "node scripts/package.mjs && node scripts/zip.mjs"
   }
 }
